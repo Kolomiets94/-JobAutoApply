@@ -7,8 +7,10 @@ import re
 from typing import Any, Dict
 
 SKILLS = {
-    "react": 1.0, "typescript": 1.0, "javascript": .8, "html": .7,
+    "react": 1.0, "typescript": 1.0, "javascript": .8, "js": .45, "html": .7,
     "css": .7, "scss": .7, "figma": .5, "redux": .7, "rest api": .6,
+    "frontend": .65, "front-end": .65, "верст": .7, "вёрст": .7,
+    "лендинг": .55, "landing": .55, "адаптив": .5, "сайт": .25,
 }
 BLOCK = ("senior", "lead ", "fullstack", "full stack", "node.js required",
          "internship", "trainee", "стажировка", "стажер", "стажёр")
@@ -39,7 +41,7 @@ def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
     competition=lead.get("proposals")
     comp_score=.15 if isinstance(competition,int) and competition < 10 else 0
     score=round(min(100, (fit*.55+budget_score*.30+quick+comp_score)*100))
-    return {**lead, "profit_score": score, "eligible": bool(matched),
+    return {**lead, "profit_score": score, "eligible": bool(matched) and score >= 12,
             "matched_skills": matched,
             "rank_reason": "skill fit + budget + speed + competition"}
 
