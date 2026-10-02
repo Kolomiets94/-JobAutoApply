@@ -17,7 +17,7 @@ def jobs():
 @app.get("/freelance")
 def freelance():
     data=collect()
-    leads=[x for x in data.get("items",[]) if x.get("category","").startswith("freelance")]
+    leads=[x for x in data.get("items",[]) if x.get("category","").startswith("freelance") or x.get("category")=="freelance"]
     ranked=rank_leads(leads)
     for lead in ranked:
         enqueue(lead)
