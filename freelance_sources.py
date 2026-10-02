@@ -11,6 +11,7 @@ UA={"User-Agent":"JobFreelanceHunter/2.0"}
 FEEDS=(
     ("habr_freelance","https://freelance.habr.com/rss/tasks"),
     ("fl_ru","https://www.fl.ru/rss/all.xml"),
+    ("upwork_frontend","https://www.upwork.com/ab/feed/jobs/rss?q=React%20OR%20TypeScript%20OR%20HTML%20OR%20CSS&sort=recency"),
 )
 
 def _clean(s):
