@@ -54,9 +54,12 @@ def _firecrawl_markdown(url):
         json={"url":url,"formats":["markdown"],"onlyMainContent":True},
         timeout=45,
     )
-    r.raise_for_status()
+    if not r.ok:
+        print(f"[firecrawl] HTTP {r.status_code}: {r.text[:500]}", flush=True)
+        r.raise_for_status()
     data=r.json()
     if not data.get("success"):
+        print(f"[firecrawl] unsuccessful: {str(data)[:500]}", flush=True)
         return ""
     return (data.get("data") or {}).get("markdown","") or data.get("markdown","") or ""
 
@@ -94,8 +97,8 @@ def collect_prolinker(max_pages=10):
         page_leads=[]
         try:
             page_leads=_parse_prolinker_markdown(_firecrawl_markdown(url))
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[prolinker] Firecrawl page {page} failed: {type(exc).__name__}: {exc}", flush=True)
 
         # Cheap fallback if ProLinker happens to allow direct server access.
         if not page_leads:
@@ -113,9 +116,10 @@ def collect_prolinker(max_pages=10):
                     if title:
                         page_leads.append({"source":"prolinker","category":"freelance","title":title,
                                            "description":title,"url":absolute,"published":""})
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[prolinker] direct page {page} failed: {type(exc).__name__}: {exc}", flush=True)
 
+        print(f"[prolinker] page {page}: {len(page_leads)} leads", flush=True)
         for lead in page_leads:
             if lead["url"] not in seen:
                 seen.add(lead["url"])
