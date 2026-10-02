@@ -1,5 +1,6 @@
 """One-pass autonomous freelance hunter worker."""
 from freelance_sources import collect_freelance
+from freelancehunt_adapter import collect_freelancehunt
 from profit_ranker import rank_leads
 from proposal_writer import make_proposal
 from application_dispatcher import dispatch
@@ -8,6 +9,8 @@ from queue_store import enqueue, set_state
 def run():
     # Freelance has its own pipeline so job-board results can never crowd it out.
     leads=collect_freelance()
+    try: leads += collect_freelancehunt()
+    except Exception: pass
     ranked=rank_leads(leads)
     stats={"found":len(leads),"ranked":len(ranked),"submitted":0,"shortlisted":0,
            "needs_confirmation":0,"skipped":0,"failed":0}
