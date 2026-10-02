@@ -9,11 +9,14 @@ from typing import Any, Dict
 SKILLS = {
     "react": 1.0, "typescript": 1.0, "javascript": .8, "js": .45, "html": .7,
     "css": .7, "scss": .7, "figma": .5, "redux": .7, "rest api": .6,
-    "frontend": .65, "front-end": .65, "верст": .7, "вёрст": .7,
+    "frontend": .65, "front-end": .65, "верстка": .7, "вёрстка": .7,
+    "верстка сайта": .85, "вёрстка сайта": .85,
     "лендинг": .55, "landing": .55, "адаптив": .5, "сайт": .25,
 }
 BLOCK = ("senior", "lead ", "fullstack", "full stack", "node.js required",
-         "internship", "trainee", "стажировка", "стажер", "стажёр")
+         "internship", "trainee", "стажировка", "стажер", "стажёр",
+         "coreldraw", "полиграф", "типограф", "для печати", "визитк",
+         "логотип", "illustrator", "интерьер", "3d-модел")
 
 def _text(lead: Dict[str, Any]) -> str:
     return " ".join(str(lead.get(k) or "") for k in
