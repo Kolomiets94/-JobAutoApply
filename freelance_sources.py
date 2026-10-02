@@ -40,3 +40,25 @@ def collect_freelance():
         except Exception:
             continue
     return leads
+
+
+def collect_prolinker():
+    """Public frontend project listing; no login or private endpoint."""
+    url="https://prolinker.com/projects/s/frontend"
+    try:
+        r=requests.get(url,headers=UA,timeout=20); r.raise_for_status()
+        # Extract project links/titles from the public listing.
+        links=re.findall(r'href=["\']([^"\']*?/projects/[^"\']+)["\'][^>]*>(.*?)</a>',r.text,re.I|re.S)
+        out=[]
+        seen=set()
+        for href,label in links:
+            title=_clean(label)
+            if not title or title.lower() in ("projects","project") or href in seen: continue
+            seen.add(href)
+            if href.startswith("/"): href="https://prolinker.com"+href
+            out.append({"source":"prolinker","category":"freelance","title":title,
+                        "description":"Remote frontend project from public ProLinker listing",
+                        "url":href,"published":""})
+        return out
+    except Exception:
+        return []
