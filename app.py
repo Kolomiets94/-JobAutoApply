@@ -3,6 +3,7 @@ from main import collect
 from profit_ranker import rank_leads
 from queue_store import enqueue, list_queue
 from proposal_writer import make_proposal
+from worker import run as run_worker
 
 app=Flask(__name__)
 
@@ -27,3 +28,7 @@ def freelance():
 @app.get("/queue")
 def queue():
     return jsonify({"items":list_queue()})
+
+@app.post("/run")
+def run_hunter():
+    return jsonify(run_worker())
