@@ -1,6 +1,7 @@
 import re, json, hashlib
 from datetime import datetime, timezone
 import requests
+from freelance_sources import collect_freelance
 HH_API="https://api.hh.ru/vacancies"
 QUERIES=[("frontend","React TypeScript junior"),("layout","верстальщик HTML CSS"),("qa","junior QA tester"),("freelance_frontend","React TypeScript проект"),("freelance_bot","Telegram bot Python")]
 EXCLUDE=("стажер","стажировка","internship","trainee","full stack","fullstack")
@@ -26,7 +27,10 @@ def collect():
     for tag,q in QUERIES:
         try:jobs+=hh_search(tag,q)
         except Exception:pass
-    jobs+=remoteok(); seen=set(); unique=[]
+    jobs+=remoteok()
+    try: jobs+=collect_freelance()
+    except Exception: pass
+    seen=set(); unique=[]
     for j in jobs:
         k=hashlib.sha256((j.get("url") or json.dumps(j,sort_keys=True)).encode()).hexdigest()
         if k not in seen:seen.add(k);unique.append(j)
