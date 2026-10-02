@@ -15,6 +15,10 @@ FEEDS=(
     ("upwork_frontend","https://www.upwork.com/ab/feed/jobs/rss?q=React%20OR%20TypeScript%20OR%20HTML%20OR%20CSS&sort=recency"),
 )
 FIRECRAWL_SCRAPE="https://api.firecrawl.dev/v2/scrape"
+PPH_URLS=(
+    "https://www.peopleperhour.com/freelance-react-js-jobs?sort=latest",
+    "https://www.peopleperhour.com/freelance-front-end-developer-jobs?sort=latest",
+)
 
 def _clean(s):
     return re.sub(r"\s+"," ",html.unescape(re.sub(r"<[^>]+>"," ",s or ""))).strip()
@@ -124,4 +128,31 @@ def collect_prolinker(max_pages=10):
             if lead["url"] not in seen:
                 seen.add(lead["url"])
                 out.append(lead)
+    return out
+
+
+def collect_peopleperhour():
+    """Collect public PeoplePerHour frontend project cards. Discovery only; no auto-bidding."""
+    out=[]
+    seen=set()
+    for url in PPH_URLS:
+        try:
+            r=requests.get(url,headers=UA,timeout=25)
+            r.raise_for_status()
+            # Public project links use /freelance-jobs/... paths; keep only unique project URLs.
+            links=re.findall(r'href=["\'](https?://www\.peopleperhour\.com/freelance-jobs/[^"\'#?]+|/freelance-jobs/[^"\'#?]+)["\']',r.text,re.I)
+            for href in links:
+                absolute=urljoin("https://www.peopleperhour.com",html.unescape(href))
+                if absolute in seen:
+                    continue
+                seen.add(absolute)
+                slug=absolute.rstrip("/").rsplit("/",1)[-1]
+                title=_clean(slug.replace("-"," "))
+                if title:
+                    out.append({"source":"peopleperhour","category":"freelance","title":title,
+                                "description":title,"url":absolute,"published":"",
+                                "apply_email":None})
+        except Exception as exc:
+            print(f"[peopleperhour] failed: {type(exc).__name__}: {exc}",flush=True)
+    print(f"[peopleperhour] {len(out)} leads",flush=True)
     return out
