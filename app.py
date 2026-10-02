@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from main import collect
 from profit_ranker import rank_leads
 from queue_store import enqueue, list_queue
+from proposal_writer import make_proposal
 
 app=Flask(__name__)
 
@@ -21,7 +22,7 @@ def freelance():
     ranked=rank_leads(leads)
     for lead in ranked:
         enqueue(lead)
-    return jsonify({"count":len(ranked),"items":ranked})
+    return jsonify({"count":len(ranked),"items":[{**x,"proposal":make_proposal(x)} for x in ranked]})
 
 @app.get("/queue")
 def queue():
