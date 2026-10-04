@@ -1,8 +1,4 @@
-"""Rank freelance leads by expected profitability.
-
-No credentials or personal data are stored here.  The score is deliberately
-transparent so it can be tuned without an AI/API dependency.
-"""
+"""Rank leads by expected profitability and resume fit."""
 import re
 from typing import Any, Dict
 
@@ -13,42 +9,70 @@ SKILLS = {
     "верстка сайта": .85, "вёрстка сайта": .85,
     "лендинг": .55, "landing": .55, "адаптив": .5, "сайт": .25,
 }
-BLOCK = ("senior", "lead ", "fullstack", "full stack", "node.js required",
-         "internship", "trainee", "стажировка", "стажер", "стажёр",
-         "coreldraw", "полиграф", "типограф", "для печати", "визитк",
-         "логотип", "illustrator", "интерьер", "3d-модел")
+BLOCK = (
+    "senior", "lead ", "fullstack", "full stack", "node.js required",
+    "internship", "trainee", "стажировка", "стажер", "стажёр",
+    "coreldraw", "полиграф", "типограф", "для печати", "визитк",
+    "логотип", "illustrator", "интерьер", "3d-модел",
+)
+
 
 def _text(lead: Dict[str, Any]) -> str:
-    return " ".join(str(lead.get(k) or "") for k in
-                    ("title","description","requirements","category")).lower()
+    return " ".join(
+        str(lead.get(k) or "")
+        for k in ("title", "description", "requirements", "category")
+    ).lower()
+
 
 def _money(lead: Dict[str, Any]) -> float:
     s = lead.get("budget") or lead.get("salary") or ""
     if isinstance(s, dict):
-        vals=[x for x in (s.get("from"),s.get("to")) if isinstance(x,(int,float))]
+        vals = [x for x in (s.get("from"), s.get("to"), s.get("amount")) if isinstance(x, (int, float))]
         return float(max(vals)) if vals else 0.0
-    nums=[float(x.replace(" ","").replace(",", ".")) for x in
-          re.findall(r"\d[\d ]*(?:[.,]\d+)?", str(s))]
+    nums = [
+        float(x.replace(" ", "").replace(",", "."))
+        for x in re.findall(r"\d[\d ]*(?:[.,]\d+)?", str(s))
+    ]
     return max(nums, default=0.0)
 
+
 def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
-    text=_text(lead)
+    text = _text(lead)
     if any(x in text for x in BLOCK):
-        return {**lead, "profit_score": 0, "eligible": False,
-                "rank_reason": "excluded requirement"}
-    matched=[k for k in SKILLS if k in text]
-    fit=sum(SKILLS[k] for k in matched)/max(sum(SKILLS.values()),1)
-    budget=_money(lead)
-    budget_score=min(budget/30000.0, 1.0) if budget else .25
-    quick=.15 if any(x in text for x in ("лендинг","landing","верст","fix","bug","правк")) else 0
-    competition=lead.get("proposals")
-    comp_score=.15 if isinstance(competition,int) and competition < 10 else 0
-    score=round(min(100, (fit*.55+budget_score*.30+quick+comp_score)*100))
-    return {**lead, "profit_score": score, "eligible": bool(matched) and score >= 12,
-            "matched_skills": matched,
-            "rank_reason": "skill fit + budget + speed + competition"}
+        return {
+            **lead,
+            "profit_score": 0,
+            "eligible": False,
+            "rank_reason": "excluded requirement",
+        }
+
+    matched = [k for k in SKILLS if k in text]
+    fit = sum(SKILLS[k] for k in matched) / max(sum(SKILLS.values()), 1)
+    budget = _money(lead)
+    budget_score = min(budget / 30000.0, 1.0) if budget else .25
+    quick = .15 if any(x in text for x in ("лендинг", "landing", "верст", "fix", "bug", "правк")) else 0
+    competition = lead.get("proposals")
+    comp_score = .15 if isinstance(competition, int) and competition < 10 else 0
+
+    resume_match = lead.get("match_score")
+    resume_score = (resume_match / 100.0) if isinstance(resume_match, (int, float)) else 0
+
+    # Resume fit adds up to 25 points without making it mandatory.
+    score = round(min(100, (fit * .45 + budget_score * .25 + quick + comp_score + resume_score * .25) * 100))
+
+    return {
+        **lead,
+        "profit_score": score,
+        "eligible": bool(matched) and score >= 12,
+        "matched_skills": matched,
+        "rank_reason": "skill fit + budget + speed + competition + resume fit",
+    }
+
 
 def rank_leads(leads):
-    ranked=[rank_lead(x) for x in leads]
-    return sorted((x for x in ranked if x["eligible"]),
-                  key=lambda x:x["profit_score"], reverse=True)
+    ranked = [rank_lead(x) for x in leads]
+    return sorted(
+        (x for x in ranked if x["eligible"]),
+        key=lambda x: x["profit_score"],
+        reverse=True,
+    )
