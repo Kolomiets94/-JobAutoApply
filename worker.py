@@ -11,6 +11,7 @@ from proposal_writer import make_proposal
 from application_dispatcher import dispatch
 from queue_store import enqueue, set_state
 from notification_rules import format_notification, should_notify
+from telegram_notifier import send_notification
 
 
 def load_resume_text():
@@ -70,6 +71,24 @@ def apply_resume_matching(leads, resume_text=None):
     return [matcher.score_lead(lead, resume_text) for lead in leads]
 
 
+def deliver_notifications(notifications):
+    """Deliver prepared notifications without letting Telegram break the worker."""
+    deliveries = []
+    for notification in notifications:
+        try:
+            deliveries.append({
+                "title": notification.get("title"),
+                **send_notification(notification),
+            })
+        except Exception as exc:
+            deliveries.append({
+                "title": notification.get("title"),
+                "status": "FAILED",
+                "reason": type(exc).__name__,
+            })
+    return deliveries
+
+
 def run():
     leads = apply_resume_matching(collect_all())
     ranked = rank_leads(leads)
@@ -95,6 +114,7 @@ def run():
                 "match_score": lead.get("match_score"),
                 "message": format_notification(lead),
             })
+
         lid = enqueue(lead)
         try:
             set_state(lid, "SHORTLISTED")
@@ -130,8 +150,16 @@ def run():
                 "reason": type(exc).__name__,
             })
 
+    deliveries = deliver_notifications(notifications)
     stats["notifications"] = len(notifications)
-    return {"stats": stats, "results": results, "notifications": notifications}
+    stats["notifications_sent"] = sum(1 for item in deliveries if item.get("status") == "SENT")
+
+    return {
+        "stats": stats,
+        "results": results,
+        "notifications": notifications,
+        "notification_deliveries": deliveries,
+    }
 
 
 if __name__ == "__main__":
