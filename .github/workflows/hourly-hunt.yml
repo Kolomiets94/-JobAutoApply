@@ -13,6 +13,8 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       MATCH_NOTIFY_MIN_SCORE: "70"
+      AUTO_BROWSER_APPLY: ${{ secrets.AUTO_BROWSER_APPLY }}
+      HH_STORAGE_STATE_JSON: ${{ secrets.HH_STORAGE_STATE_JSON }}
       PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
@@ -21,5 +23,7 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
       - name: Run hunter
         run: python worker.py
