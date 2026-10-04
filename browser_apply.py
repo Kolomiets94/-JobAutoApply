@@ -5,6 +5,7 @@ The module never bypasses CAPTCHA, 2FA, login challenges, or paid actions.
 Actual submission requires AUTO_BROWSER_APPLY=1.
 """
 
+import json
 import os
 from typing import Dict
 
@@ -35,7 +36,22 @@ def _looks_like_challenge(page) -> bool:
     return any(marker in text for marker in markers)
 
 
-def apply_hh(lead: Dict, proposal: str, storage_state: str | None = None) -> Dict[str, str]:
+def _storage_state(storage_state=None):
+    if storage_state:
+        return storage_state
+
+    raw_json = os.getenv("HH_STORAGE_STATE_JSON", "").strip()
+    if raw_json:
+        try:
+            return json.loads(raw_json)
+        except json.JSONDecodeError:
+            return None
+
+    path = os.getenv("HH_STORAGE_STATE", "").strip()
+    return path or None
+
+
+def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
     """Open an hh.ru vacancy, click Respond and submit when possible."""
     url = str(lead.get("url") or "")
     if not url:
@@ -47,7 +63,7 @@ def apply_hh(lead: Dict, proposal: str, storage_state: str | None = None) -> Dic
     if not _enabled():
         return {"status": "SHORTLISTED", "reason": "browser_apply_disabled"}
 
-    browser_state = storage_state or os.getenv("HH_STORAGE_STATE", "").strip() or None
+    browser_state = _storage_state(storage_state)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=os.getenv("BROWSER_HEADLESS", "1") != "0")
@@ -62,7 +78,6 @@ def apply_hh(lead: Dict, proposal: str, storage_state: str | None = None) -> Dic
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
-            # hh.ru can expose multiple response buttons depending on layout.
             respond = page.get_by_text("Откликнуться", exact=True)
             if respond.count() == 0:
                 respond = page.locator('[data-qa="vacancy-response-link-top"]')
@@ -79,12 +94,10 @@ def apply_hh(lead: Dict, proposal: str, storage_state: str | None = None) -> Dic
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
-            # Some vacancies require a cover letter; fill it when a textarea exists.
             textarea = page.locator("textarea")
             if textarea.count() > 0 and proposal:
                 textarea.first.fill(proposal)
 
-            # Try known submit labels. If none exist, the initial click may already submit.
             submit = page.get_by_text("Отправить", exact=True)
             if submit.count() == 0:
                 submit = page.get_by_text("Откликнуться", exact=True)
