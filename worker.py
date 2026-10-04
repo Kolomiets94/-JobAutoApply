@@ -10,6 +10,7 @@ from profit_ranker import rank_leads
 from proposal_writer import make_proposal
 from application_dispatcher import dispatch
 from queue_store import enqueue, set_state
+from notification_rules import format_notification, should_notify
 
 
 def load_resume_text():
@@ -83,8 +84,17 @@ def run():
         "failed": 0,
     }
     results = []
+    notifications = []
 
     for lead in ranked:
+        if should_notify(lead):
+            notifications.append({
+                "title": lead.get("title"),
+                "source": lead.get("source"),
+                "url": lead.get("url"),
+                "match_score": lead.get("match_score"),
+                "message": format_notification(lead),
+            })
         lid = enqueue(lead)
         try:
             set_state(lid, "SHORTLISTED")
@@ -120,7 +130,8 @@ def run():
                 "reason": type(exc).__name__,
             })
 
-    return {"stats": stats, "results": results}
+    stats["notifications"] = len(notifications)
+    return {"stats": stats, "results": results, "notifications": notifications}
 
 
 if __name__ == "__main__":
