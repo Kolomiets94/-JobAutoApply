@@ -1,4 +1,4 @@
-"""Create truthful, individualized cover letters without inventing experience."""
+"""Create truthful, concise, individualized cover letters."""
 
 import re
 
@@ -23,17 +23,17 @@ KNOWN = {
 }
 
 PROJECT_EXAMPLES = (
-    ("api", "делал интеграции с REST API, обработку ошибок и состояния загрузки"),
+    ("api", "делал интеграции с REST API и обработку ошибок"),
     ("auth", "реализовывал авторизацию и защищённые маршруты"),
     ("login", "реализовывал авторизацию и защищённые маршруты"),
-    ("redux", "работал с Redux Toolkit для управления состоянием"),
+    ("redux", "работал с Redux Toolkit"),
     ("figma", "переносил интерфейсы из Figma в адаптивную вёрстку"),
-    ("responsive", "делал адаптивные интерфейсы под разные экраны"),
-    ("адаптив", "делал адаптивные интерфейсы под разные экраны"),
+    ("responsive", "делал адаптивные интерфейсы"),
+    ("адаптив", "делал адаптивные интерфейсы"),
     ("search", "реализовывал поиск с debounce"),
     ("поиск", "реализовывал поиск с debounce"),
-    ("validation", "добавлял валидацию форм и обработку ошибок"),
-    ("валидац", "добавлял валидацию форм и обработку ошибок"),
+    ("validation", "добавлял валидацию и обработку ошибок"),
+    ("валидац", "добавлял валидацию и обработку ошибок"),
 )
 
 
@@ -55,15 +55,14 @@ def _skills(text):
     for key, label in KNOWN.items():
         if key in text and label not in found:
             found.append(label)
-    return found[:5]
+    return found[:4]
 
 
-def _relevant_experience(text):
-    examples = []
+def _experience(text):
     for marker, sentence in PROJECT_EXAMPLES:
-        if marker in text and sentence not in examples:
-            examples.append(sentence)
-    return examples[:2]
+        if marker in text:
+            return sentence
+    return "работал с React, TypeScript, адаптивной вёрсткой и API"
 
 
 def make_proposal(lead):
@@ -72,35 +71,10 @@ def make_proposal(lead):
     description = _clean(lead.get("description"))
     text = f"{title} {description}".lower()
 
-    skills = _skills(text)
-    if not skills:
-        skills = ["React", "TypeScript", "HTML/CSS"]
-
-    experience = _relevant_experience(text)
-
+    skills = _skills(text) or ["React", "TypeScript", "HTML/CSS"]
     greeting = f"Здравствуйте, команда {company}!" if company else "Здравствуйте!"
-    vacancy_ref = f"Вакансия «{title}» заинтересовала меня"
-    skill_sentence = (
-        " потому что в ней хорошо совпадает мой стек: "
-        + ", ".join(skills)
-        + "."
+
+    return (
+        f"{greeting} Вакансия «{title}» мне подходит по стеку: {', '.join(skills)}. "
+        f"В проектах я {_experience(text)}; готов работать удалённо и быстро включиться в задачи."
     )
-
-    if experience:
-        experience_sentence = (
-            " В своих проектах я "
-            + " и ".join(experience)
-            + "."
-        )
-    else:
-        experience_sentence = (
-            " В учебных и пет-проектах я работал с React и TypeScript, "
-            "делал адаптивные интерфейсы, интеграцию с API, формы и обработку ошибок."
-        )
-
-    closing = (
-        " Готов работать удалённо, быстро включиться в задачу и выполнить тестовое задание. "
-        "Буду рад обсудить детали."
-    )
-
-    return greeting + " " + vacancy_ref + skill_sentence + experience_sentence + closing
