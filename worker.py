@@ -11,7 +11,7 @@ from proposal_writer import make_proposal
 from application_dispatcher import dispatch
 from queue_store import enqueue, get_state, set_state, submitted_today, was_submitted
 from notification_rules import format_notification, should_notify
-from telegram_notifier import send_notification
+from telegram_notifier import send_message, send_notification
 
 
 def load_resume_text():
@@ -180,11 +180,30 @@ def run():
     stats["daily_application_limit"] = daily_limit
     stats["submitted_today_total"] = submitted_count
 
+    summary_message = (
+        "Job Auto Apply report\n"
+        f"Found: {stats['found']}\n"
+        f"Ranked: {stats['ranked']}\n"
+        f"Submitted this run: {stats['submitted']}\n"
+        f"Skipped: {stats['skipped'] + stats['duplicate_skipped'] + stats['daily_limit_skipped']}\n"
+        f"Failed: {stats['failed']}\n"
+        f"Telegram vacancy alerts sent: {stats['notifications_sent']}\n"
+        f"Submitted today: {stats['submitted_today_total']}/{stats['daily_application_limit']}"
+    )
+    try:
+        summary_delivery = send_message(summary_message)
+    except Exception as exc:
+        summary_delivery = {
+            "status": "FAILED",
+            "reason": type(exc).__name__,
+        }
+
     return {
         "stats": stats,
         "results": results,
         "notifications": notifications,
         "notification_deliveries": deliveries,
+        "summary_delivery": summary_delivery,
     }
 
 
