@@ -9,17 +9,15 @@ from job_matcher import JobMatcher
 from profit_ranker import rank_leads
 from proposal_writer import make_proposal
 from application_dispatcher import dispatch
-from queue_store import enqueue, set_state
+from queue_store import enqueue, get_state, set_state, submitted_today, was_submitted
 from notification_rules import format_notification, should_notify
 from telegram_notifier import send_notification
 
 
 def load_resume_text():
-    """Load resume text from env first, then an optional local file."""
     text = os.getenv("RESUME_TEXT", "").strip()
     if text:
         return text
-
     path = os.getenv("RESUME_FILE", "resume/profile.txt")
     try:
         with open(path, "r", encoding="utf-8") as fh:
@@ -29,9 +27,7 @@ def load_resume_text():
 
 
 def collect_all():
-    """Collect public job and freelance leads without letting one source stop the run."""
     leads = []
-
     for tag, query in QUERIES:
         try:
             leads += hh_search(tag, query)
@@ -62,17 +58,14 @@ def collect_all():
 
 
 def apply_resume_matching(leads, resume_text=None):
-    """Attach deterministic resume-match metadata before profitability ranking."""
     resume_text = load_resume_text() if resume_text is None else resume_text
     if not resume_text:
         return leads
-
     matcher = JobMatcher()
     return [matcher.score_lead(lead, resume_text) for lead in leads]
 
 
 def deliver_notifications(notifications):
-    """Deliver prepared notifications without letting Telegram break the worker."""
     deliveries = []
     for notification in notifications:
         try:
@@ -93,6 +86,9 @@ def run():
     leads = apply_resume_matching(collect_all())
     ranked = rank_leads(leads)
 
+    daily_limit = int(os.getenv("DAILY_APPLICATION_LIMIT", "10"))
+    submitted_count = submitted_today()
+
     stats = {
         "found": len(leads),
         "ranked": len(ranked),
@@ -101,11 +97,35 @@ def run():
         "needs_confirmation": 0,
         "skipped": 0,
         "failed": 0,
+        "duplicate_skipped": 0,
+        "daily_limit_skipped": 0,
     }
     results = []
     notifications = []
 
     for lead in ranked:
+        lid = enqueue(lead)
+
+        if was_submitted(lid):
+            stats["duplicate_skipped"] += 1
+            results.append({
+                "id": lid,
+                "title": lead.get("title"),
+                "status": "SKIPPED",
+                "reason": "already_submitted",
+            })
+            continue
+
+        if submitted_count >= daily_limit:
+            stats["daily_limit_skipped"] += 1
+            results.append({
+                "id": lid,
+                "title": lead.get("title"),
+                "status": "SKIPPED",
+                "reason": "daily_application_limit",
+            })
+            continue
+
         if should_notify(lead):
             notifications.append({
                 "title": lead.get("title"),
@@ -115,13 +135,15 @@ def run():
                 "message": format_notification(lead),
             })
 
-        lid = enqueue(lead)
         try:
             set_state(lid, "SHORTLISTED")
             proposal = make_proposal(lead)
             result = dispatch(lead, proposal)
             state = result["status"]
             set_state(lid, state)
+
+            if state == "SUBMITTED":
+                submitted_count += 1
 
             key = state.lower()
             if key in stats:
@@ -152,7 +174,11 @@ def run():
 
     deliveries = deliver_notifications(notifications)
     stats["notifications"] = len(notifications)
-    stats["notifications_sent"] = sum(1 for item in deliveries if item.get("status") == "SENT")
+    stats["notifications_sent"] = sum(
+        1 for item in deliveries if item.get("status") == "SENT"
+    )
+    stats["daily_application_limit"] = daily_limit
+    stats["submitted_today_total"] = submitted_count
 
     return {
         "stats": stats,
