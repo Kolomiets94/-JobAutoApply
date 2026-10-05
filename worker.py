@@ -87,7 +87,7 @@ def run():
     ranked = rank_leads(leads)
 
     daily_limit = int(os.getenv("DAILY_APPLICATION_LIMIT", "10"))
-    submitted_count = submitted_today()
+    submitted_count = submitted_today()\n    per_run_limit = int(os.getenv("HOURLY_APPLICATION_LIMIT", "2"))
 
     stats = {
         "found": len(leads),
@@ -177,7 +177,7 @@ def run():
     stats["notifications_sent"] = sum(
         1 for item in deliveries if item.get("status") == "SENT"
     )
-    stats["daily_application_limit"] = daily_limit
+    stats["daily_application_limit"] = daily_limit\n    stats["hourly_application_limit"] = per_run_limit
     stats["submitted_today_total"] = submitted_count
 
     summary_message = (
