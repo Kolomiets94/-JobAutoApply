@@ -169,6 +169,8 @@ def run():
                 key = state.lower()
                 if key in stats:
                     stats[key] += 1
+                else:
+                    stats["skipped"] += 1
 
             results.append({
                 "id": lid,
@@ -212,6 +214,8 @@ def run():
         f"Submitted this run total: {stats['submitted']}\n"
         f"Skipped: {stats['skipped'] + stats['duplicate_skipped'] + stats['daily_limit_skipped'] + stats['hourly_limit_skipped']}\n"
         f"Failed: {stats['failed']}\n"
+        f"Shortlisted (not sent): {stats['shortlisted']}\n"
+        f"Needs confirmation: {stats['needs_confirmation']}\n"
         f"Telegram vacancy alerts sent: {stats['notifications_sent']}\n"
         f"Submitted today: {stats['submitted_today_total']}/{stats['daily_application_limit']}"
     )
