@@ -21,6 +21,17 @@ BLOCK = (
 RUSSIA_SOURCES = {"hh", "fl_ru", "habr_freelance", "freelancehunt"}
 INTERNATIONAL_SOURCES = {"remoteok", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
 FREELANCE_SOURCES = {"fl_ru", "habr_freelance", "freelancehunt", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
+TARGET_TITLE_TERMS = (
+    "frontend", "front-end", "react", "typescript", "javascript",
+    "верстальщик", "верстка", "вёрстка", "html", "css",
+    "qa tester", "qa engineer", "manual qa", "manual tester",
+    "тестировщик", "quality assurance",
+)
+NON_TARGET_TITLE_TERMS = (
+    "architect", "assessor", "annotator", "trainer", "evaluator",
+    "data scientist", "data engineer", "product manager", "project manager",
+)
+
 FREELANCE_TOO_COMPLEX = (
     "architect", "архитектор", "devops", "kubernetes", "terraform", "microservices",
     "микросервис", "highload", "high-load", "machine learning", "data engineer",
