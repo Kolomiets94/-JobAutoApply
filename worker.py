@@ -6,10 +6,10 @@ from main import QUERIES, hh_search, remoteok
 from freelance_sources import collect_freelance, collect_peopleperhour, collect_prolinker
 from freelancehunt_adapter import collect_freelancehunt
 from job_matcher import JobMatcher
-from profit_ranker import rank_leads
+from profit_ranker import rank_leads, FREELANCE_SOURCES
 from proposal_writer import make_proposal
 from application_dispatcher import dispatch
-from queue_store import enqueue, get_state, set_state, submitted_today, was_submitted
+from queue_store import enqueue, set_state, submitted_today, was_submitted
 from notification_rules import format_notification, should_notify
 from telegram_notifier import send_message, send_notification
 
@@ -65,6 +65,10 @@ def apply_resume_matching(leads, resume_text=None):
     return [matcher.score_lead(lead, resume_text) for lead in leads]
 
 
+def is_freelance(lead):
+    return str(lead.get("source") or "").lower() in FREELANCE_SOURCES
+
+
 def deliver_notifications(notifications):
     deliveries = []
     for notification in notifications:
@@ -88,25 +92,36 @@ def run():
 
     daily_limit = int(os.getenv("DAILY_APPLICATION_LIMIT", "10"))
     submitted_count = submitted_today()
-    per_run_limit = int(os.getenv("HOURLY_APPLICATION_LIMIT", "2"))
+    job_limit = int(os.getenv("HOURLY_JOB_LIMIT", "2"))
+    freelance_limit = int(os.getenv("HOURLY_FREELANCE_LIMIT", "2"))
 
     stats = {
         "found": len(leads),
         "ranked": len(ranked),
         "submitted": 0,
+        "jobs_submitted": 0,
+        "freelance_submitted": 0,
         "shortlisted": 0,
         "needs_confirmation": 0,
         "skipped": 0,
         "failed": 0,
         "duplicate_skipped": 0,
         "daily_limit_skipped": 0,
+        "hourly_limit_skipped": 0,
     }
     results = []
     notifications = []
 
     for lead in ranked:
-        if stats["submitted"] >= per_run_limit:
-            break
+        freelance = is_freelance(lead)
+        bucket = "freelance_submitted" if freelance else "jobs_submitted"
+        bucket_limit = freelance_limit if freelance else job_limit
+
+        # Do not stop the whole run when one category is full:
+        # jobs and freelance have independent hourly limits.
+        if stats[bucket] >= bucket_limit:
+            stats["hourly_limit_skipped"] += 1
+            continue
 
         lid = enqueue(lead)
 
@@ -148,10 +163,12 @@ def run():
 
             if state == "SUBMITTED":
                 submitted_count += 1
-
-            key = state.lower()
-            if key in stats:
-                stats[key] += 1
+                stats["submitted"] += 1
+                stats[bucket] += 1
+            else:
+                key = state.lower()
+                if key in stats:
+                    stats[key] += 1
 
             results.append({
                 "id": lid,
@@ -182,15 +199,18 @@ def run():
         1 for item in deliveries if item.get("status") == "SENT"
     )
     stats["daily_application_limit"] = daily_limit
-    stats["hourly_application_limit"] = per_run_limit
+    stats["hourly_job_limit"] = job_limit
+    stats["hourly_freelance_limit"] = freelance_limit
     stats["submitted_today_total"] = submitted_count
 
     summary_message = (
         "Job Auto Apply report\n"
         f"Found: {stats['found']}\n"
         f"Ranked: {stats['ranked']}\n"
-        f"Submitted this run: {stats['submitted']}\n"
-        f"Skipped: {stats['skipped'] + stats['duplicate_skipped'] + stats['daily_limit_skipped']}\n"
+        f"Jobs submitted this run: {stats['jobs_submitted']}/{stats['hourly_job_limit']}\n"
+        f"Freelance submitted this run: {stats['freelance_submitted']}/{stats['hourly_freelance_limit']}\n"
+        f"Submitted this run total: {stats['submitted']}\n"
+        f"Skipped: {stats['skipped'] + stats['duplicate_skipped'] + stats['daily_limit_skipped'] + stats['hourly_limit_skipped']}\n"
         f"Failed: {stats['failed']}\n"
         f"Telegram vacancy alerts sent: {stats['notifications_sent']}\n"
         f"Submitted today: {stats['submitted_today_total']}/{stats['daily_application_limit']}"
