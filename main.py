@@ -51,8 +51,15 @@ def ok(v):
 
 
 def hh_search(tag,q):
-    r=requests.get(HH_API,params={"text":q,"per_page":50,"order_by":"publication_time"},headers=UA,timeout=20); r.raise_for_status()
-    return [{"source":"hh","category":tag,"title":v["name"],"company":(v.get("employer") or {}).get("name"),"url":v.get("alternate_url"),"published":v.get("published_at"),"salary":v.get("salary")} for v in r.json().get("items",[]) if ok(v)]
+    items=[]
+    for page in range(6):
+        r=requests.get(HH_API,params={"text":q,"per_page":50,"page":page,"order_by":"publication_time"},headers=UA,timeout=20)
+        r.raise_for_status()
+        payload=r.json()
+        items.extend(payload.get("items",[]))
+        if page >= int(payload.get("pages",1))-1:
+            break
+    return [{"source":"hh","category":tag,"title":v["name"],"company":(v.get("employer") or {}).get("name"),"url":v.get("alternate_url"),"published":v.get("published_at"),"salary":v.get("salary")} for v in items if ok(v)]
 
 
 def remoteok():
@@ -60,7 +67,7 @@ def remoteok():
         data=requests.get("https://remoteok.com/api",headers=UA,timeout=20).json(); out=[]
         for v in data[1:]:
             text=((v.get("position") or "")+" "+(v.get("description") or "")).lower()
-            if ("react" in text or "typescript" in text) and not any(x in text for x in EXCLUDE):
+            if any(x in text for x in ("react","typescript","javascript","frontend","front-end","html","css","qa","quality assurance","manual tester")) and not any(x in text for x in EXCLUDE):
                 out.append({"source":"remoteok","category":"frontend","title":v.get("position"),"company":v.get("company"),"url":v.get("url"),"apply_url":v.get("apply_url"),"apply_email":v.get("apply_email"),"description":v.get("description"),"location":v.get("location"),"salary_min":v.get("salary_min"),"salary_max":v.get("salary_max"),"published":v.get("date")})
         return out[:50]
     except Exception:return []
