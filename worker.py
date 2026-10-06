@@ -205,6 +205,17 @@ def run():
     stats["hourly_freelance_limit"] = freelance_limit
     stats["submitted_today_total"] = submitted_count
 
+    detail_lines = []
+    for item in results[:8]:
+        title = str(item.get("title") or "Untitled")[:80]
+        source = str(item.get("source") or "?")
+        status = str(item.get("status") or "?")
+        reason = str(item.get("reason") or "")
+        url = str(item.get("url") or "")
+        detail_lines.append(f"- {title} [{source}] — {status}" + (f" ({reason})" if reason else ""))
+        if url:
+            detail_lines.append(url)
+
     summary_message = (
         "Job Auto Apply report\n"
         f"Found: {stats['found']}\n"
@@ -217,7 +228,8 @@ def run():
         f"Shortlisted (not sent): {stats['shortlisted']}\n"
         f"Needs confirmation: {stats['needs_confirmation']}\n"
         f"Telegram vacancy alerts sent: {stats['notifications_sent']}\n"
-        f"Submitted today: {stats['submitted_today_total']}/{stats['daily_application_limit']}"
+        f"Submitted today: {stats['submitted_today_total']}/{stats['daily_application_limit']}\n\n"
+        "Results:\n" + ("\n".join(detail_lines) if detail_lines else "No ranked results")
     )
     try:
         summary_delivery = send_message(summary_message)
