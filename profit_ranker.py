@@ -19,6 +19,13 @@ BLOCK = (
 )
 RUSSIA_SOURCES = {"hh", "fl_ru", "habr_freelance", "freelancehunt"}
 INTERNATIONAL_SOURCES = {"remoteok", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
+FREELANCE_SOURCES = {"fl_ru", "habr_freelance", "freelancehunt", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
+FREELANCE_TOO_COMPLEX = (
+    "architect", "архитектор", "devops", "kubernetes", "terraform", "microservices",
+    "микросервис", "highload", "high-load", "machine learning", "data engineer",
+    "blockchain", "web3", "smart contract", "1c", "bitrix", "битрикс",
+    "django", "laravel", "spring boot", ".net", "golang", "rust",
+)
 
 
 def _text(lead: Dict[str, Any]) -> str:
@@ -81,6 +88,10 @@ def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
         return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "salary below configured floor"}
     if _location_rejected(lead, text):
         return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "explicit location/work-authorization restriction"}
+
+    source = str(lead.get("source") or "").lower()
+    if source in FREELANCE_SOURCES and any(x in text for x in FREELANCE_TOO_COMPLEX):
+        return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "freelance project too complex/out of scope"}
 
     matched = [k for k in SKILLS if k in text]
     fit = sum(SKILLS[k] for k in matched) / max(sum(SKILLS.values()), 1)
