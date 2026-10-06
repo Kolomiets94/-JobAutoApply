@@ -16,7 +16,8 @@ jobs:
       AUTO_BROWSER_APPLY: ${{ secrets.AUTO_BROWSER_APPLY }}
       HH_STORAGE_STATE_JSON: ${{ secrets.HH_STORAGE_STATE_JSON }}
       DAILY_APPLICATION_LIMIT: "10"
-      HOURLY_APPLICATION_LIMIT: "2"
+      HOURLY_JOB_LIMIT: "2"
+      HOURLY_FREELANCE_LIMIT: "2"
       HUNTER_DB: hunter.db
       PYTHONPATH: .
     steps:
