@@ -61,7 +61,7 @@ def remoteok():
         for v in data[1:]:
             text=((v.get("position") or "")+" "+(v.get("description") or "")).lower()
             if ("react" in text or "typescript" in text) and not any(x in text for x in EXCLUDE):
-                out.append({"source":"remoteok","category":"frontend","title":v.get("position"),"company":v.get("company"),"url":v.get("url"),"published":v.get("date")})
+                out.append({"source":"remoteok","category":"frontend","title":v.get("position"),"company":v.get("company"),"url":v.get("url"),"apply_url":v.get("apply_url"),"apply_email":v.get("apply_email"),"description":v.get("description"),"location":v.get("location"),"salary_min":v.get("salary_min"),"salary_max":v.get("salary_max"),"published":v.get("date")})
         return out[:50]
     except Exception:return []
 
