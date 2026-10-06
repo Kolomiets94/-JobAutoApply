@@ -4,8 +4,16 @@ import requests
 from freelance_sources import collect_freelance
 
 HH_API="https://api.hh.ru/vacancies"
-QUERIES=[("frontend","React TypeScript junior"),("layout","верстальщик HTML CSS"),("qa","junior QA tester"),("freelance_frontend","React TypeScript проект"),("freelance_bot","Telegram bot Python")]
-EXCLUDE=("стажер","стажировка","internship","trainee","full stack","fullstack")
+QUERIES=[
+    ("frontend","React TypeScript junior"),
+    ("frontend","Junior Frontend React"),
+    ("frontend","Frontend JavaScript TypeScript"),
+    ("layout","верстальщик HTML CSS"),
+    ("layout","HTML CSS JavaScript верстальщик"),
+    ("qa","junior QA tester"),
+    ("qa","manual QA junior"),
+]
+EXCLUDE=("стажер","стажировка","internship","trainee","full stack","fullstack","middle","senior","lead","head of","manager","director")
 UA={"User-Agent":"JobFreelanceHunter/1.1"}
 
 
