@@ -12,7 +12,7 @@ SKILLS = {
     "qa": .55, "tester": .55, "тестировщик": .55, "manual qa": .65,
 }
 BLOCK = (
-    "senior", "lead ", "team lead", "tech lead", "fullstack", "full stack",
+    "middle", "mid-level", "mid level", "senior", "lead ", "team lead", "tech lead", "fullstack", "full stack",
     "node.js required", "internship", "trainee", "стажировка", "стажер", "стажёр",
     "coreldraw", "полиграф", "типограф", "для печати", "визитк",
     "логотип", "illustrator", "интерьер", "3d-модел",
