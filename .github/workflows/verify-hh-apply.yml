@@ -4,6 +4,10 @@ on:
   push:
     paths:
       - ".github/workflows/verify-hh-apply.yml"
+      - "browser_apply.py"
+      - "proposal_writer.py"
+      - "profit_ranker.py"
+      - "hh_web_search.py"
   workflow_dispatch:
 
 concurrency:
