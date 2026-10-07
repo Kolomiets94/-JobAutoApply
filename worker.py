@@ -31,6 +31,15 @@ def load_resume_text():
 COLLECTION_ERRORS = []
 
 
+def _lead_key(lead):
+    """Canonicalize HH URLs so the same vacancy found by several queries is processed once."""
+    url = str(lead.get("url") or "")
+    match = __import__("re").search(r"https?://(?:www\.)?hh\.ru/vacancy/(\d+)", url)
+    if match:
+        return f"hh:{match.group(1)}"
+    return url or str(lead)
+
+
 def record_collection_error(source, exc):
     status = getattr(getattr(exc, "response", None), "status_code", None)
     reason = type(exc).__name__ + (f" HTTP {status}" if status else "")
@@ -62,7 +71,7 @@ def collect_all():
     seen = set()
     unique = []
     for lead in leads:
-        key = lead.get("url") or str(lead)
+        key = _lead_key(lead)
         if key in seen:
             continue
         seen.add(key)
