@@ -10,6 +10,7 @@ import gzip
 import io
 import json
 import os
+import re
 from typing import Dict
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -62,6 +63,23 @@ def _storage_state(storage_state=None):
     return path or None
 
 
+def _select_resume(page, category):
+    patterns = {
+        "frontend": r"frontend|front.end|фронт|react",
+        "layout": r"верст|вёрст|html.?css",
+        "qa": r"тестиров|\\bqa\\b|tester",
+    }
+    pattern = re.compile(patterns.get(category, r"(?!)"), re.I)
+    radios = page.get_by_role("radio")
+    if not radios.count():
+        return False
+    matched = page.get_by_role("radio", name=pattern)
+    if not matched.count():
+        return False
+    matched.first.check(timeout=10000)
+    return matched.first.is_checked()
+
+
 def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
     """Open an hh.ru vacancy, click Respond and submit when possible."""
     url = str(lead.get("url") or "")
@@ -105,8 +123,13 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
+            if not _select_resume(page, str(lead.get("category") or "frontend")):
+                return {"status": "NEEDS_CONFIRMATION", "reason": "matching_resume_selector_not_found"}
+
             textarea = page.locator("textarea")
-            if textarea.count() > 0 and proposal:
+            if not textarea.count():
+                return {"status": "NEEDS_CONFIRMATION", "reason": "cover_letter_field_not_found"}
+            if proposal:
                 textarea.first.fill(proposal)
 
             submit = page.get_by_text("Отправить", exact=True)
