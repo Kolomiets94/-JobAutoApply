@@ -43,13 +43,19 @@ app.get("/", guard, async (_req, res, next) => {
 <title>HH Session Bootstrap</title>
 <style>
 body{font-family:-apple-system,sans-serif;margin:0;background:#111;color:#fff}#bar{position:sticky;top:0;background:#222;padding:8px;z-index:2}
-button,input{font-size:16px;padding:10px;margin:3px}#shot{width:100%;display:block;touch-action:manipulation}#txt{width:55%}.hint{font-size:13px;color:#bbb;padding:6px}
+button,input{font-size:16px;padding:10px;margin:3px}#shot{width:100%;display:block;touch-action:manipulation}#txt{width:55%}.hint{font-size:13px;color:#bbb;padding:6px}.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:6px}.pad button{font-size:22px;min-height:48px}
 </style>
 <div id="bar">
 <button onclick="nav()">HH</button><button onclick="back()">←</button><button onclick="key('Enter')">Enter</button>
-<input id="txt" autocomplete="off" placeholder="Текст для выбранного поля"><button onclick="typeText()">Ввести</button>
+<input id="txt" autocomplete="off" inputmode="numeric" placeholder="Текст для выбранного поля"><button onclick="typeText()">Ввести</button>
+<div class="pad">
+<button onclick="digit('1')">1</button><button onclick="digit('2')">2</button><button onclick="digit('3')">3</button>
+<button onclick="digit('4')">4</button><button onclick="digit('5')">5</button><button onclick="digit('6')">6</button>
+<button onclick="digit('7')">7</button><button onclick="digit('8')">8</button><button onclick="digit('9')">9</button>
+<button onclick="key('Backspace')">⌫</button><button onclick="digit('0')">0</button><button onclick="key('Enter')">OK</button>
+</div>
 <a href="/state?t=${t}"><button>Скачать сессию</button></a>
-<div class="hint">Нажми нужное поле на снимке, введи текст сверху и нажми «Ввести».</div>
+<div class="hint">Нажми поле на снимке HH, затем используй цифровые кнопки выше. Клавиатура iPhone не нужна.</div>
 </div>
 <img id="shot" src="/shot?t=${t}&n=0">
 <script>
@@ -59,6 +65,7 @@ async function post(path,data={}){await fetch(path,{method:'POST',headers:{'cont
 function refresh(){shot.src='/shot?t='+encodeURIComponent(T)+'&n='+(n++)}
 shot.onclick=async e=>{const r=shot.getBoundingClientRect(); const x=(e.clientX-r.left)*390/r.width; const y=(e.clientY-r.top)*844/r.height; await post('/click',{x,y})}
 async function typeText(){const el=document.getElementById('txt'); await post('/type',{text:el.value}); el.value=''}
+async function digit(d){await post('/key',{key:d})}
 async function key(k){await post('/key',{key:k})}
 async function nav(){await post('/nav')}
 async function back(){await post('/back')}
@@ -79,7 +86,7 @@ app.post("/click", guard, async (req, res, next) => {
   catch (e) { next(e); }
 });
 app.post("/type", guard, async (req, res, next) => {
-  try { const p = await ensureBrowser(); await p.keyboard.type(String(req.body.text || ""), { delay: 25 }); res.json({ ok: true }); }
+  try { const p = await ensureBrowser(); const text = String(req.body.text || ""); await p.keyboard.insertText(text); res.json({ ok: true }); }
   catch (e) { next(e); }
 });
 app.post("/key", guard, async (req, res, next) => {
