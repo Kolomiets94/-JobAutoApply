@@ -13,6 +13,8 @@ from queue_store import enqueue, set_state, submitted_today, was_submitted
 from notification_rules import format_notification, should_notify
 from telegram_notifier import send_message, send_notification
 
+DEFAULT_RESUME_TEXT = """Junior Frontend Developer. React, TypeScript, JavaScript ES6+, Redux Toolkit, React Router, REST API, HTML5, CSS3, SCSS, Git, Figma, Vite, Webpack, responsive and cross-browser layout. Projects include authentication, protected routes, CRUD, API integration, debounce search, validation and error handling. Manual testing of own web applications. English B1. Remote work."""
+
 
 def load_resume_text():
     text = os.getenv("RESUME_TEXT", "").strip()
@@ -23,7 +25,7 @@ def load_resume_text():
         with open(path, "r", encoding="utf-8") as fh:
             return fh.read().strip()
     except OSError:
-        return ""
+        return DEFAULT_RESUME_TEXT
 
 
 COLLECTION_ERRORS = []
