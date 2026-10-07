@@ -12,15 +12,10 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 HH_HOSTS = ("hh.ru", "www.hh.ru")
-RESUME_NAMES = {
-    "frontend": ("Frontend-разработчик (React)", "Frontend-разработчик", "React"),
-    "layout": ("Верстальщик html/css", "Верстальщик HTML/CSS", "Верстальщик"),
-    "qa": ("Junior QA Engineer", "QA Engineer", "Тестировщик"),
-}
-RESUME_PATTERNS = {
-    "frontend": re.compile(r"frontend|front[ -]?end|фронт|react", re.I),
-    "layout": re.compile(r"верст|вёрст|html\s*/?\s*css", re.I),
-    "qa": re.compile(r"junior\s+qa|qa\s+engineer|тестиров", re.I),
+RESUME_TITLES = {
+    "frontend": "Frontend-разработчик (React)",
+    "layout": "Верстальщик html/css",
+    "qa": "Junior QA Engineer",
 }
 
 
@@ -30,11 +25,10 @@ def _enabled():
 
 def _looks_like_challenge(page):
     text = (page.locator("body").inner_text(timeout=5000) or "").lower()
-    markers = (
+    return any(x in text for x in (
         "captcha", "капча", "подтвердите, что вы человек", "проверка безопасности",
         "verify your identity", "security check", "two-factor", "2fa", "код подтверждения",
-    )
-    return any(x in text for x in markers)
+    ))
 
 
 def _storage_state(storage_state=None):
@@ -63,64 +57,91 @@ def _visible(locator):
         return False
 
 
+def _norm(value):
+    return re.sub(r"\s+", " ", value or "").strip().lower()
+
+
 def _confirm_relocation_warning(page):
-    button = page.locator('button[data-qa="relocation-warning-confirm"]').first
+    button = page.locator('[data-qa="relocation-warning-confirm"]').first
     if _visible(button):
         button.click(timeout=5000)
         page.wait_for_timeout(500)
 
 
 def _select_resume(page, category):
-    """Use HH's resume selector and refuse to continue if the chosen resume cannot be verified."""
-    pattern = RESUME_PATTERNS.get(category)
-    if not pattern:
+    """Select and verify the role-specific résumé in HH's current Magritte picker."""
+    wanted = RESUME_TITLES.get(category)
+    if not wanted:
+        return False
+    target = _norm(wanted)
+
+    header = page.locator('[data-qa="resume-title"]').first
+    if not _visible(header):
         return False
 
-    selector = page.locator('[data-qa*="resume-select"], [data-qa*="resume-selector"]').first
-    if _visible(selector):
-        selector.click(timeout=5000)
-        page.wait_for_timeout(400)
-        for name in RESUME_NAMES.get(category, ()):
-            option = page.get_by_text(name, exact=True).first
-            if _visible(option):
-                option.click(timeout=5000)
-                page.wait_for_timeout(400)
-                return True
-        # Exact labels can vary slightly; use a short visible matching option as fallback.
-        options = page.locator('[role="option"], [data-qa*="resume"], button, label')
-        for i in range(min(options.count(), 150)):
-            node = options.nth(i)
-            try:
-                if not _visible(node):
-                    continue
-                text = (node.inner_text(timeout=500) or "").strip()
-                if text and len(text) < 180 and pattern.search(text):
-                    node.click(timeout=5000)
-                    page.wait_for_timeout(400)
-                    return True
-            except Exception:
-                continue
+    try:
+        if _norm(header.inner_text(timeout=1000)) == target:
+            return True
+    except Exception:
+        pass
+
+    try:
+        header.click(timeout=5000)
+        page.wait_for_timeout(500)
+    except Exception:
         return False
 
-    # Some HH layouts show the already-selected resume without a chooser.
-    resume_nodes = page.locator('[data-qa*="resume"]')
-    visible_resume_text = []
-    for i in range(min(resume_nodes.count(), 100)):
-        node = resume_nodes.nth(i)
+    cards = page.locator('[data-magritte-select-option]')
+    for _ in range(8):
+        if cards.count():
+            break
+        page.wait_for_timeout(500)
+
+    chosen = None
+    expected = ""
+    for i in range(cards.count()):
+        card = cards.nth(i)
         try:
-            if _visible(node):
-                text = (node.inner_text(timeout=500) or "").strip()
-                if text:
-                    visible_resume_text.append(text)
+            title_node = card.locator('[data-qa="resume-title"]').first
+            title = _norm(title_node.inner_text(timeout=700) if title_node.count() else card.inner_text(timeout=700))
+            if title and (title == target or target in title or title in target):
+                chosen = card
+                expected = title
+                break
         except Exception:
             continue
-    joined = "\n".join(visible_resume_text)
-    return bool(joined and pattern.search(joined))
+
+    # Older HH layout fallback: title cards without data-magritte-select-option.
+    if chosen is None:
+        titles = page.locator('[data-qa="resume-title"]')
+        for i in range(titles.count()):
+            node = titles.nth(i)
+            try:
+                title = _norm(node.inner_text(timeout=700))
+                if title and (title == target or target in title or title in target):
+                    chosen = node
+                    expected = title
+                    break
+            except Exception:
+                continue
+
+    if chosen is None:
+        return False
+
+    try:
+        chosen.click(timeout=5000)
+        for _ in range(8):
+            page.wait_for_timeout(400)
+            current = page.locator('[data-qa="resume-title"]').first
+            if _visible(current) and _norm(current.inner_text(timeout=700)) == expected:
+                return True
+    except Exception:
+        return False
+    return False
 
 
 def _questionnaire_required(page):
-    # HH employer questionnaires use task_* textareas. Never invent answers.
-    if page.locator('textarea[name^="task_"]').count() > 0:
+    if page.locator('textarea[name^="task_"]').count():
         return True
     body = (page.locator("body").inner_text(timeout=5000) or "").lower()
     return any(x in body for x in (
@@ -128,11 +149,53 @@ def _questionnaire_required(page):
     ))
 
 
+def _find_letter_area(page):
+    selectors = (
+        'textarea[data-qa="vacancy-response-popup-form-letter-input"]',
+        'textarea[name="letter"]',
+        'textarea[name="text"]',
+        'textarea[data-qa*="letter"]',
+        'textarea[placeholder*="опроводитель"]',
+    )
+    for _ in range(10):
+        for selector in selectors:
+            area = page.locator(selector).first
+            if _visible(area):
+                return area
+        toggle = page.locator('[data-qa="vacancy-response-letter-toggle"]').first
+        if not _visible(toggle):
+            toggle = page.get_by_text("Сопроводительное", exact=False).first
+        if _visible(toggle):
+            try:
+                toggle.click(timeout=3000)
+            except Exception:
+                pass
+        page.wait_for_timeout(500)
+    return None
+
+
+def _verify_response_sent(page, vacancy_url):
+    try:
+        page.goto(vacancy_url, wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(1200)
+    except Exception:
+        return False
+    view = page.locator(
+        '[data-qa="vacancy-response-link-view-topic"], [data-qa="vacancy-response-link-view"]'
+    ).first
+    if _visible(view):
+        return True
+    body = (page.locator("body").inner_text(timeout=5000) or "").lower()
+    return any(x in body for x in (
+        "вы откликнулись", "вы уже откликались", "резюме доставлено", "отклик доставлен",
+    ))
+
+
 def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
-    url = str(lead.get("url") or "")
-    if not url:
+    raw_url = str(lead.get("url") or "")
+    if not raw_url:
         return {"status": "SKIPPED", "reason": "missing_url"}
-    if not any(host in url for host in HH_HOSTS):
+    if not any(host in raw_url for host in HH_HOSTS):
         return {"status": "SKIPPED", "reason": "unsupported_browser_source"}
     if not _enabled():
         return {"status": "SHORTLISTED", "reason": "browser_apply_disabled"}
@@ -141,18 +204,23 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
     if not state:
         return {"status": "NEEDS_HUMAN", "reason": "hh_session_missing"}
 
+    vacancy_url = raw_url.split("?")[0]
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=os.getenv("BROWSER_HEADLESS", "1") != "0")
         try:
             context = browser.new_context(storage_state=state, locale="ru-RU")
             page = context.new_page()
-            page.goto(url.split("?")[0], wait_until="domcontentloaded", timeout=30000)
+            page.goto(vacancy_url, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(1200)
 
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
+            if _verify_response_sent(page, vacancy_url):
+                return {"status": "SKIPPED", "reason": "already_applied_on_hh"}
+
             respond = page.locator(
-                'a[data-qa="vacancy-response-link-top"], button[data-qa="vacancy-response-link-top"]'
+                '[data-qa="vacancy-response-link-top"], [data-qa="vacancy-response-link-bottom"]'
             ).first
             if not _visible(respond):
                 body = (page.locator("body").inner_text(timeout=5000) or "").lower()
@@ -160,30 +228,10 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
                     return {"status": "NEEDS_HUMAN", "reason": "login_required"}
                 return {"status": "SKIPPED", "reason": "respond_button_not_found"}
 
-            # Use a pre-submit flow so we can verify the correct resume before any response is sent.
-            opened_form = False
-            with_letter = page.get_by_text("Написать сопроводительное", exact=False).first
-            if _visible(with_letter):
-                with_letter.click(timeout=7000)
-                opened_form = True
-            else:
-                dropdown = page.locator(
-                    '[data-qa="vacancy-response-link-top"] + button, [data-qa="vacancy-response-link-bottom"] + button'
-                ).first
-                if _visible(dropdown):
-                    dropdown.click(timeout=5000)
-                    page.wait_for_timeout(300)
-                    option = page.get_by_text("С сопроводительным письмом", exact=False).first
-                    if _visible(option):
-                        option.click(timeout=5000)
-                        opened_form = True
-
-            if not opened_form:
-                # Clicking the plain response button can submit immediately with HH's default resume.
-                # Refuse that unsafe path because this automation must use the role-matched resume.
-                return {"status": "NEEDS_CONFIRMATION", "reason": "safe_pre_submit_flow_unavailable"}
-
-            page.wait_for_timeout(700)
+            # Current HH opens the response modal here; nothing is counted as sent
+            # until the explicit submit below and the post-submit verification pass.
+            respond.click(timeout=10000)
+            page.wait_for_timeout(1200)
             _confirm_relocation_warning(page)
 
             if _looks_like_challenge(page):
@@ -196,42 +244,35 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
             if _questionnaire_required(page):
                 return {"status": "NEEDS_CONFIRMATION", "reason": "employer_questions_require_human"}
 
-            toggle = page.locator('[data-qa*="letter-toggle"]').first
-            if not _visible(toggle):
-                toggle = page.get_by_text("Написать сопроводительное", exact=False).first
-            if not _visible(toggle):
-                toggle = page.get_by_text("Добавить сопроводительное", exact=False).first
-            if _visible(toggle):
-                toggle.click(timeout=5000)
-                page.wait_for_timeout(400)
-
-            textarea = page.locator(
-                'textarea[data-qa="vacancy-response-popup-form-letter-input"], textarea:not([name^="task_"])'
-            ).first
-            if not _visible(textarea):
+            textarea = _find_letter_area(page)
+            if textarea is None:
                 return {"status": "NEEDS_CONFIRMATION", "reason": "cover_letter_field_not_found"}
             textarea.fill(proposal)
-            if textarea.input_value().strip() != proposal.strip():
+            if _norm(textarea.input_value()) != _norm(proposal):
                 return {"status": "FAILED", "reason": "cover_letter_not_preserved"}
 
-            submit = page.locator('button[data-qa*="vacancy-response-submit"]:visible').first
-            if not _visible(submit):
+            submit = None
+            for selector in (
+                '[data-qa="vacancy-response-submit-popup"]',
+                '[data-qa="vacancy-response-letter-submit"]',
+                '[data-qa="vacancy-response-submit"]',
+                'button[data-qa*="response-submit"]',
+                'button[type="submit"]:has-text("Откликнуться")',
+                'button[type="submit"]:has-text("Отправить")',
+            ):
+                candidate = page.locator(selector).first
+                if _visible(candidate):
+                    submit = candidate
+                    break
+            if submit is None:
                 return {"status": "NEEDS_CONFIRMATION", "reason": "submit_button_not_found"}
 
             submit.click(timeout=10000)
-            page.wait_for_timeout(1000)
-
+            page.wait_for_timeout(1800)
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
-            success = page.locator(
-                '[data-qa="vacancy-response-success"], [data-qa="vacancy-response-link-view-topic"]'
-            ).first
-            if _visible(success):
-                return {"status": "SUBMITTED", "reason": "browser_hh_sent"}
-
-            body = (page.locator("body").inner_text(timeout=5000) or "").lower()
-            if any(x in body for x in ("вы откликнулись", "отклик отправлен", "резюме доставлено")):
+            if _verify_response_sent(page, vacancy_url):
                 return {"status": "SUBMITTED", "reason": "browser_hh_sent"}
             return {"status": "NEEDS_CONFIRMATION", "reason": "submission_not_confirmed"}
 
