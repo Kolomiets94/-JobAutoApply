@@ -131,13 +131,27 @@ def zarplata():
     )
 
 
-def rabota_ru():
-    """Public Rabota.ru remote frontend listing. Delivery is handled separately."""
-    return public_listing(
-        'rabota_ru',
-        'https://www.rabota.ru/vacancy/frontend-%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%87%D0%B8%D0%BA/%D1%83%D0%B4%D0%B0%D0%BB%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%20%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%B0/',
-        r'href=["\\\']([^"\\\']*/vacancy/\\d+[^"\\\']*)["\\\'][^>]*>(.*?)</a>'
-    )
+def remote_job_ru():
+    """Public remote-job.ru Junior searches; discovery only."""
+    out = []
+    queries = ('junior frontend', 'junior react', 'верстальщик html css', 'junior qa')
+    for query in queries:
+        data = response(
+            'https://remote-job.ru/search',
+            **{'search[query]': query, 'search[searchType]': 'vacancy'}
+        ).text
+        seen = set()
+        # Cards expose vacancy links and headings in server-rendered HTML.
+        for href, label in re.findall(
+            r'href=["\\\']([^"\\\']*(?:/vacancy/|/vacancies/)[^"\\\']*)["\\\'][^>]*>(.*?)</a>',
+            data, re.I | re.S
+        ):
+            absolute = urljoin('https://remote-job.ru', html.unescape(href))
+            title = clean(label)
+            if title and absolute not in seen:
+                seen.add(absolute)
+                out.append(job('remote_job_ru', title, absolute, title, language='ru'))
+    return out
 
 
 def superjob():
@@ -190,5 +204,5 @@ def jooble():
 JOB_COLLECTORS = (('habr_career', habr_career), ('trudvsem', trudvsem),
                   ('jobicy', jobicy), ('remotive', remotive),
                   ('weworkremotely', weworkremotely), ('arbeitnow', arbeitnow),
-                  ('geekjob', geekjob), ('getmatch', getmatch), ('zarplata', zarplata), ('rabota_ru', rabota_ru),
+                  ('geekjob', geekjob), ('getmatch', getmatch), ('zarplata', zarplata), ('remote_job_ru', remote_job_ru),
                   ('superjob', superjob), ('jooble', jooble))
