@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 15
     env:
       RESUME_TEXT: ${{ secrets.RESUME_TEXT }}
+      SUPERJOB_API_KEY: ${{ secrets.SUPERJOB_API_KEY }}
+      JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       MATCH_NOTIFY_MIN_SCORE: "70"
