@@ -71,6 +71,16 @@ def make_proposal(lead):
     company = _company(lead)
     description = _clean(lead.get("description"))
     text = f"{title} {description}".lower()
+    category = str(lead.get("category") or "").lower()
+
+    if category == "qa":
+        greeting = f"Здравствуйте, команда {company}!" if company else "Здравствуйте!"
+        return (
+            f"{greeting} Вакансия «{title}» заинтересовала меня как Junior QA. "
+            "В своих веб-проектах я вручную проверял формы, API-интеграции, валидацию и обработку ошибок; "
+            "понимаю клиентскую часть приложений благодаря опыту с React и TypeScript. "
+            "Готов работать удалённо, быстро включиться в процессы тестирования и выполнить тестовое задание."
+        )
 
     skills = _skills(text)
     if not skills:
