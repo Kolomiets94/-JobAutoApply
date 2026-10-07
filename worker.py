@@ -1,6 +1,8 @@
 """Unified one-pass job + freelance hunter worker."""
 
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from job_sources import JOB_COLLECTORS
 
 from main import QUERIES, hh_search, remoteok
 from freelance_sources import collect_freelance, collect_peopleperhour, collect_prolinker
@@ -8,6 +10,7 @@ from freelancehunt_adapter import collect_freelancehunt
 from job_matcher import JobMatcher
 from profit_ranker import rank_leads, FREELANCE_SOURCES
 from proposal_writer import make_proposal
+from application_schedule import application_time_allowed
 from application_dispatcher import dispatch
 from queue_store import enqueue, set_state, submitted_today, was_submitted
 from notification_rules import format_notification, should_notify
@@ -37,7 +40,12 @@ def _lead_key(lead):
     match = __import__("re").search(r"https?://(?:www\.)?hh\.ru/vacancy/(\d+)", url)
     if match:
         return f"hh:{match.group(1)}"
-    return url or str(lead)
+    if url:
+        from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+        parts = urlsplit(url)
+        query = [(k, v) for k, v in parse_qsl(parts.query) if not k.startswith("utm_") and k not in ("ref", "source")]
+        return urlunsplit((parts.scheme, parts.netloc.lower(), parts.path.rstrip("/"), urlencode(query), ""))
+    return str(lead)
 
 
 def record_collection_error(source, exc):
@@ -67,6 +75,18 @@ def collect_all():
             leads += collector()
         except Exception as exc:
             record_collection_error(source, exc)
+
+    # Independent public sources run concurrently with bounded request timeouts.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(collector): source for source, collector in JOB_COLLECTORS}
+        for future in as_completed(futures):
+            source = futures[future]
+            try:
+                collected = future.result()
+                leads.extend(collected)
+                print(f"[collector] {source}: {len(collected)} leads", flush=True)
+            except Exception as exc:
+                record_collection_error(source, exc)
 
     seen = set()
     unique = []
@@ -109,6 +129,10 @@ def deliver_notifications(notifications):
 
 
 def run():
+    if not application_time_allowed():
+        return {"stats": {"submitted": 0}, "results": [],
+                "reason": "outside_application_hours",
+                "application_window": "Mon-Fri 06:00-18:00 Asia/Yekaterinburg"}
     leads = apply_resume_matching(collect_all())
     ranked = rank_leads(leads)
 
@@ -117,7 +141,7 @@ def run():
     job_limit = int(os.getenv("HOURLY_JOB_LIMIT", "2"))
     freelance_limit = int(os.getenv("HOURLY_FREELANCE_LIMIT", "2"))
 
-    source_counts = {}
+    source_counts = {name: 0 for name, _ in JOB_COLLECTORS}
     for lead in leads:
         source = str(lead.get("source") or "unknown")
         source_counts[source] = source_counts.get(source, 0) + 1

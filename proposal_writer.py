@@ -73,6 +73,21 @@ def make_proposal(lead):
     text = f"{title} {description}".lower()
     category = str(lead.get("category") or "").lower()
 
+    if lead.get("language") == "en":
+        greeting = f"Hello {company} team!" if company else "Hello!"
+        if category == "qa":
+            experience = ("I manually tested forms, API integrations, validation and error handling "
+                          "in my own web applications, with frontend knowledge from React and TypeScript projects.")
+        elif category == "layout":
+            experience = "In my personal projects I built responsive interfaces using HTML, CSS/SCSS and JavaScript."
+        else:
+            skills = [KNOWN[k] for k in ("react", "typescript", "javascript", "redux", "html", "css") if k in text]
+            stack = ", ".join(skills) or "React and TypeScript"
+            experience = f"My personal projects use {stack}, REST API integrations, authentication, forms and error handling."
+        return (f"{greeting} I am applying for the {title} position. {experience} "
+                "I am based in Yekaterinburg, Russia, seeking remote work; my English level is B1. "
+                "I would be happy to complete a relevant test task and discuss the role.")
+
     if category == "qa":
         greeting = f"Здравствуйте, команда {company}!" if company else "Здравствуйте!"
         return (

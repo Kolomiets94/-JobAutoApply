@@ -30,7 +30,7 @@ def test_score_lead_without_resume_is_non_blocking():
 
 def test_ranker_rewards_resume_fit():
     base = {
-        "title": "React TypeScript landing",
+        "title": "Junior Frontend React TypeScript",
         "description": "React TypeScript HTML CSS landing",
         "budget": 30000,
     }

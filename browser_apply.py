@@ -7,6 +7,7 @@ import json
 import os
 import re
 from typing import Dict
+from application_schedule import application_time_allowed
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
@@ -336,6 +337,8 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
             if submit is None:
                 return {"status": "NEEDS_CONFIRMATION", "reason": "submit_button_not_found"}
 
+            if not application_time_allowed():
+                return {"status": "SKIPPED", "reason": "outside_application_hours"}
             submit.click(timeout=10000)
             page.wait_for_timeout(1800)
             if _looks_like_challenge(page):

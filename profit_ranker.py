@@ -18,8 +18,8 @@ BLOCK = (
     "coreldraw", "полиграф", "типограф", "для печати", "визитк",
     "логотип", "illustrator", "интерьер", "3d-модел",
 )
-RUSSIA_SOURCES = {"hh", "fl_ru", "habr_freelance", "freelancehunt"}
-INTERNATIONAL_SOURCES = {"remoteok", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
+RUSSIA_SOURCES = {"hh", "habr_career", "trudvsem", "fl_ru", "habr_freelance", "freelancehunt"}
+INTERNATIONAL_SOURCES = {"remoteok", "jobicy", "remotive", "weworkremotely", "arbeitnow", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
 FREELANCE_SOURCES = {"fl_ru", "habr_freelance", "freelancehunt", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
 TARGET_TITLE_TERMS = (
     "frontend", "front-end", "react", "typescript", "javascript",
@@ -74,22 +74,28 @@ def _explicit_salary_rejected(lead: Dict[str, Any]) -> bool:
             return amount < 60000
         if currency in ("USD", "$"):
             # RemoteOK-style annual salaries are converted to a monthly comparison.
-            monthly = amount / 12.0 if amount > 12000 else amount
+            period = str(salary.get("period") or "").lower()
+            monthly = amount / 12.0 if period in ("year", "yearly", "annual", "annually") else amount
+            if not period and source == "remoteok" and amount > 12000:
+                monthly = amount / 12.0
             return monthly < 2000
     return False
 
 
 def _location_rejected(lead: Dict[str, Any], text: str) -> bool:
-    # Explicit worldwide/anywhere is always acceptable unless the listing itself says otherwise.
-    if any(x in text for x in ("remote worldwide", "worldwide", "work from anywhere", "anywhere in the world")):
-        return False
+    # Restrictions override broad promotional worldwide wording.
     restricted = (
         "must reside in", "must be located in", "must live in", "residents only",
         "us only", "u.s. only", "uk only", "eu only", "europe only",
         "right to work in", "work authorization", "work authorisation",
         "visa sponsorship is not available", "no visa sponsorship",
     )
-    return any(x in text for x in restricted)
+    if any(x in text for x in restricted):
+        return True
+    if str(lead.get("source") or "").lower() in INTERNATIONAL_SOURCES and str(lead.get("source")) not in FREELANCE_SOURCES:
+        location = str(lead.get("location") or "").lower().strip()
+        return not any(x in location for x in ("worldwide", "anywhere", "global", "russia", "росси"))
+    return False
 
 
 def _role_category(lead: Dict[str, Any]) -> str:

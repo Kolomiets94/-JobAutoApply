@@ -3,7 +3,8 @@ from unittest.mock import patch
 import worker
 
 
-def test_collect_all_deduplicates_urls():
+def test_collect_all_deduplicates_urls(monkeypatch):
+    monkeypatch.setattr(worker, "JOB_COLLECTORS", ())
     same = {"source": "hh", "title": "React Junior", "url": "https://example.com/1"}
     other = {"source": "remoteok", "title": "Frontend", "url": "https://example.com/2"}
 
@@ -20,7 +21,8 @@ def test_collect_all_deduplicates_urls():
     assert "https://example.com/2" in urls
 
 
-def test_collect_all_isolates_source_failures():
+def test_collect_all_isolates_source_failures(monkeypatch):
+    monkeypatch.setattr(worker, "JOB_COLLECTORS", ())
     lead = {"source": "remoteok", "title": "React", "url": "https://example.com/ok"}
 
     with patch.object(worker, "hh_search", side_effect=RuntimeError("boom")), \
