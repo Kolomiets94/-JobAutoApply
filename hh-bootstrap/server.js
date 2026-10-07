@@ -41,20 +41,24 @@ app.get("/prepare-session", guard, (_req, res) => {
 <style>body{font-family:system-ui;max-width:600px;margin:24px auto;padding:16px}button,input,textarea{font-size:18px;margin:12px 0;width:100%;box-sizing:border-box}button{padding:14px}textarea{height:140px}</style>
 <h1>Подготовить сессию HH</h1>
 <p>Выбери сохранённый hh-state.json. Файл обрабатывается только в браузере телефона и никуда не отправляется.</p>
-<input id="file" type="file" accept=".json,application/json">
+<input id="file" type="file" accept=".json,application/json">\n<label><input id="cookiesOnly" type="checkbox" style="width:auto"> Только cookies HH (если полный файл слишком большой)</label>\n<p>Этот вариант исключает локальные данные страниц. После переноса нужно проверить вход в HH. Исходный файл не меняется.</p>
 <p id="status" role="status"></p>
 <textarea id="result" readonly placeholder="Здесь появится значение для GitHub Secret"></textarea>
 <button id="copy" disabled>Скопировать для GitHub</button>
 <p>Имя секрета: <b>HH_STORAGE_STATE_JSON</b>. После вставки нажми Add secret. Сжатая строка тоже содержит данные доступа: не публикуй её.</p>
 <script>
 const file=document.getElementById('file'), result=document.getElementById('result'), status=document.getElementById('status'), copy=document.getElementById('copy');
-file.onchange=async()=>{
+const cookiesOnly=document.getElementById('cookiesOnly');\nasync function prepare(){
  result.value='';copy.disabled=true;
  try{
   const chosen=file.files[0];if(!chosen)return;
   if(chosen.size>5*1024*1024)throw new Error('Файл больше 5 МБ.');
-  const state=JSON.parse(await chosen.text());
+  let state=JSON.parse(await chosen.text());
   if(!Array.isArray(state.cookies)||!Array.isArray(state.origins))throw new Error('Нужен JSON сессии Playwright с cookies и origins.');
+  if(cookiesOnly.checked){
+   state={cookies:state.cookies.filter(c=>{const domain=String(c.domain||'').replace(/^\\./,'').toLowerCase();return domain==='hh.ru'||domain.endsWith('.hh.ru');}),origins:[]};
+   if(!state.cookies.length)throw new Error('В файле нет cookies HH. Нужна новая сессия после входа.');
+  }
   const raw=new TextEncoder().encode(JSON.stringify(state));
   let value=new TextDecoder().decode(raw);
   if(raw.byteLength>48000){
@@ -68,7 +72,7 @@ file.onchange=async()=>{
   result.value=value;copy.disabled=false;status.textContent='Готово: '+Math.ceil(size/1024)+' КБ. Нажми «Скопировать для GitHub».';
  }catch(e){status.textContent=e.message;}
 };
-copy.onclick=async()=>{
+file.onchange=prepare;cookiesOnly.onchange=prepare;\ncopy.onclick=async()=>{
  try{await navigator.clipboard.writeText(result.value);status.textContent='Скопировано. Вставь в поле Secret на GitHub.';}
  catch(e){result.focus();result.select();status.textContent='Выделен весь текст. Выбери «Скопировать» в меню телефона.';}
 };
