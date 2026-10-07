@@ -54,6 +54,9 @@ def hh_search(tag,q):
     items=[]
     for page in range(6):
         r=requests.get(HH_API,params={"text":q,"per_page":50,"page":page,"order_by":"publication_time"},headers=UA,timeout=20)
+        if r.status_code == 403:
+            from hh_web_search import search_hh_web
+            return search_hh_web(tag, q)
         r.raise_for_status()
         payload=r.json()
         items.extend(payload.get("items",[]))
