@@ -364,9 +364,9 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
         return {"status": "SHORTLISTED", "reason": "browser_apply_disabled"}
 
     name = os.getenv("REMOTE_JOB_NAME", "").strip()
-    email = os.getenv("REMOTE_JOB_EMAIL", "").strip()
+    email = (os.getenv("REMOTE_JOB_EMAIL", "") or os.getenv("SMTP_USER", "")).strip()
     phone = os.getenv("REMOTE_JOB_PHONE", "").strip()
-    if not all((name, email, phone)):
+    if not all((name, email)):
         return {"status": "NEEDS_HUMAN", "reason": "remote_job_identity_missing"}
 
     with sync_playwright() as p:
@@ -385,12 +385,13 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
                 "phone": page.get_by_label("Телефон", exact=True).first,
                 "answer": page.get_by_label("Ответ на вакансию", exact=True).first,
             }
-            if not all(_visible(x) for x in fields.values()):
+            if not all(_visible(fields[x]) for x in ("name", "email", "answer")):
                 return {"status": "NEEDS_CONFIRMATION", "reason": "remote_job_form_not_found"}
 
             fields["name"].fill(name)
             fields["email"].fill(email)
-            fields["phone"].fill(phone)
+            if phone and _visible(fields["phone"]):
+                fields["phone"].fill(phone)
             fields["answer"].fill(proposal)
 
             # Newsletter consent is optional and deliberately left unchecked.
