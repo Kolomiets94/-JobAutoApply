@@ -1,9 +1,4 @@
-"""Browser-based application automation.
-
-Currently supports hh.ru vacancy pages.
-The module never bypasses CAPTCHA, 2FA, login challenges, employer questions, or paid actions.
-Actual submission requires AUTO_BROWSER_APPLY=1.
-"""
+"""Safe browser-based HH.ru application automation."""
 
 import base64
 import gzip
@@ -16,8 +11,12 @@ from typing import Dict
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
-
 HH_HOSTS = ("hh.ru", "www.hh.ru")
+RESUME_NAMES = {
+    "frontend": ("Frontend-разработчик (React)", "Frontend-разработчик", "React"),
+    "layout": ("Верстальщик html/css", "Верстальщик HTML/CSS", "Верстальщик"),
+    "qa": ("Junior QA Engineer", "QA Engineer", "Тестировщик"),
+}
 RESUME_PATTERNS = {
     "frontend": re.compile(r"frontend|front[ -]?end|фронт|react", re.I),
     "layout": re.compile(r"верст|вёрст|html\s*/?\s*css", re.I),
@@ -25,133 +24,108 @@ RESUME_PATTERNS = {
 }
 
 
-def _enabled() -> bool:
+def _enabled():
     return os.getenv("AUTO_BROWSER_APPLY", "0") == "1"
 
 
-def _looks_like_challenge(page) -> bool:
+def _looks_like_challenge(page):
     text = (page.locator("body").inner_text(timeout=5000) or "").lower()
     markers = (
         "captcha", "капча", "подтвердите, что вы человек", "проверка безопасности",
         "verify your identity", "security check", "two-factor", "2fa", "код подтверждения",
     )
-    return any(marker in text for marker in markers)
+    return any(x in text for x in markers)
 
 
 def _storage_state(storage_state=None):
     if storage_state:
         return storage_state
-    raw_json = os.getenv("HH_STORAGE_STATE_JSON", "").strip()
-    if raw_json:
+    raw = os.getenv("HH_STORAGE_STATE_JSON", "").strip()
+    if raw:
         try:
-            if raw_json.startswith("gzip-base64:"):
-                encoded = raw_json.removeprefix("gzip-base64:")
-                compressed = base64.b64decode(encoded, validate=True)
+            if raw.startswith("gzip-base64:"):
+                compressed = base64.b64decode(raw.removeprefix("gzip-base64:"), validate=True)
                 with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as stream:
                     payload = stream.read(5 * 1024 * 1024 + 1)
                 if len(payload) > 5 * 1024 * 1024:
                     raise ValueError("HH session exceeds decompressed size limit")
                 return json.loads(payload)
-            return json.loads(raw_json)
+            return json.loads(raw)
         except (ValueError, OSError, EOFError):
             return None
-    path = os.getenv("HH_STORAGE_STATE", "").strip()
-    return path or None
+    return os.getenv("HH_STORAGE_STATE", "").strip() or None
 
 
-def _visible(locator) -> bool:
+def _visible(locator):
     try:
-        return locator.is_visible(timeout=500)
+        return locator.is_visible(timeout=700)
     except Exception:
         return False
 
 
-def _select_resume(page, category: str) -> bool:
-    """Select only a resume whose visible title matches the vacancy category."""
+def _confirm_relocation_warning(page):
+    button = page.locator('button[data-qa="relocation-warning-confirm"]').first
+    if _visible(button):
+        button.click(timeout=5000)
+        page.wait_for_timeout(500)
+
+
+def _select_resume(page, category):
+    """Use HH's resume selector and refuse to continue if the chosen resume cannot be verified."""
     pattern = RESUME_PATTERNS.get(category)
     if not pattern:
         return False
 
-    # HH sometimes hides the resume list behind a chooser.
-    for label in ("Выбрать другое резюме", "Сменить резюме", "Выбрать резюме"):
-        chooser = page.get_by_text(label, exact=False)
-        if chooser.count() and _visible(chooser.first):
+    selector = page.locator('[data-qa*="resume-select"], [data-qa*="resume-selector"]').first
+    if _visible(selector):
+        selector.click(timeout=5000)
+        page.wait_for_timeout(400)
+        for name in RESUME_NAMES.get(category, ()):
+            option = page.get_by_text(name, exact=True).first
+            if _visible(option):
+                option.click(timeout=5000)
+                page.wait_for_timeout(400)
+                return True
+        # Exact labels can vary slightly; use a short visible matching option as fallback.
+        options = page.locator('[role="option"], [data-qa*="resume"], button, label')
+        for i in range(min(options.count(), 150)):
+            node = options.nth(i)
             try:
-                chooser.first.click(timeout=5000)
-                page.wait_for_timeout(500)
+                if not _visible(node):
+                    continue
+                text = (node.inner_text(timeout=500) or "").strip()
+                if text and len(text) < 180 and pattern.search(text):
+                    node.click(timeout=5000)
+                    page.wait_for_timeout(400)
+                    return True
             except Exception:
-                pass
-            break
+                continue
+        return False
 
-    # Preferred path: accessible radio controls.
-    radios = page.get_by_role("radio")
-    for i in range(radios.count()):
-        radio = radios.nth(i)
+    # Some HH layouts show the already-selected resume without a chooser.
+    resume_nodes = page.locator('[data-qa*="resume"]')
+    visible_resume_text = []
+    for i in range(min(resume_nodes.count(), 100)):
+        node = resume_nodes.nth(i)
         try:
-            name = radio.get_attribute("aria-label") or ""
-            if not name:
-                rid = radio.get_attribute("id")
-                if rid:
-                    lab = page.locator(f'label[for="{rid}"]')
-                    if lab.count():
-                        name = lab.first.inner_text(timeout=1000)
-            if pattern.search(name):
-                radio.check(timeout=5000)
-                return radio.is_checked()
+            if _visible(node):
+                text = (node.inner_text(timeout=500) or "").strip()
+                if text:
+                    visible_resume_text.append(text)
         except Exception:
             continue
-
-    # HH also renders resume choices as cards/links/buttons rather than radios.
-    candidates = page.locator('[data-qa*="resume"], a, button, label')
-    for i in range(min(candidates.count(), 250)):
-        node = candidates.nth(i)
-        try:
-            if not _visible(node):
-                continue
-            text = (node.inner_text(timeout=500) or "").strip()
-            if not text or not pattern.search(text):
-                continue
-            # Avoid clicking generic navigation that merely mentions all resumes.
-            if len(text) > 220 or re.search(r"мои резюме|создать резюме", text, re.I):
-                continue
-            node.click(timeout=5000)
-            page.wait_for_timeout(500)
-            return True
-        except Exception:
-            continue
-
-    # A single already-selected resume can be displayed as plain text.
-    body = page.locator("body").inner_text(timeout=5000) or ""
-    matches = [p for p in RESUME_PATTERNS.values() if p.search(body)]
-    return bool(pattern.search(body) and len(matches) == 1)
+    joined = "\n".join(visible_resume_text)
+    return bool(joined and pattern.search(joined))
 
 
-def _has_employer_questions(page) -> bool:
-    """Stop rather than guessing answers to employer-specific questions."""
+def _questionnaire_required(page):
+    # HH employer questionnaires use task_* textareas. Never invent answers.
+    if page.locator('textarea[name^="task_"]').count() > 0:
+        return True
     body = (page.locator("body").inner_text(timeout=5000) or "").lower()
-    markers = (
-        "ответьте на вопросы работодателя",
-        "вопросы работодателя",
-        "ответьте на вопрос",
-        "обязательный вопрос",
-        "employer questions",
-    )
-    if any(x in body for x in markers):
-        return True
-
-    # The cover-letter textarea is expected. Other visible answer controls are not.
-    visible_textareas = 0
-    for i in range(page.locator("textarea").count()):
-        if _visible(page.locator("textarea").nth(i)):
-            visible_textareas += 1
-    if visible_textareas > 1:
-        return True
-
-    controls = page.locator('input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="submit"]), select')
-    for i in range(controls.count()):
-        if _visible(controls.nth(i)):
-            return True
-    return False
+    return any(x in body for x in (
+        "ответьте на вопросы работодателя", "вопросы работодателя", "обязательный вопрос",
+    ))
 
 
 def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
@@ -163,68 +137,89 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
     if not _enabled():
         return {"status": "SHORTLISTED", "reason": "browser_apply_disabled"}
 
-    browser_state = _storage_state(storage_state)
-    if not browser_state:
+    state = _storage_state(storage_state)
+    if not state:
         return {"status": "NEEDS_HUMAN", "reason": "hh_session_missing"}
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=os.getenv("BROWSER_HEADLESS", "1") != "0")
         try:
-            context = browser.new_context(storage_state=browser_state, locale="ru-RU")
+            context = browser.new_context(storage_state=state, locale="ru-RU")
             page = context.new_page()
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.goto(url.split("?")[0], wait_until="domcontentloaded", timeout=30000)
 
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
-            respond = page.get_by_text("Откликнуться", exact=True)
-            if respond.count() == 0:
-                respond = page.locator('[data-qa="vacancy-response-link-top"]')
-            if respond.count() == 0:
+            respond = page.locator(
+                'a[data-qa="vacancy-response-link-top"], button[data-qa="vacancy-response-link-top"]'
+            ).first
+            if not _visible(respond):
                 body = (page.locator("body").inner_text(timeout=5000) or "").lower()
                 if "войти" in body or "авториз" in body:
                     return {"status": "NEEDS_HUMAN", "reason": "login_required"}
                 return {"status": "SKIPPED", "reason": "respond_button_not_found"}
 
-            respond.first.click(timeout=10000)
-            page.wait_for_timeout(1000)
+            respond.click(timeout=10000)
+            page.wait_for_timeout(700)
+            _confirm_relocation_warning(page)
+
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
-            category = str(lead.get("category") or "frontend")
+            # HH can sometimes submit immediately with the currently active resume.
+            post_submit_attach = page.locator(
+                'button[data-qa="responded-success-attach-cover-letter"]'
+            ).first
+            if _visible(post_submit_attach):
+                return {
+                    "status": "NEEDS_CONFIRMATION",
+                    "reason": "hh_submitted_before_resume_verification",
+                }
+
+            category = str(lead.get("category") or "frontend").lower()
             if not _select_resume(page, category):
                 return {"status": "NEEDS_CONFIRMATION", "reason": "matching_resume_selector_not_found"}
 
-            if _has_employer_questions(page):
+            if _questionnaire_required(page):
                 return {"status": "NEEDS_CONFIRMATION", "reason": "employer_questions_require_human"}
 
-            textareas = page.locator("textarea")
-            visible_textarea = None
-            for i in range(textareas.count()):
-                if _visible(textareas.nth(i)):
-                    visible_textarea = textareas.nth(i)
-                    break
-            if visible_textarea is None:
-                return {"status": "NEEDS_CONFIRMATION", "reason": "cover_letter_field_not_found"}
-            if proposal:
-                visible_textarea.fill(proposal)
+            toggle = page.locator('[data-qa*="letter-toggle"]').first
+            if not _visible(toggle):
+                toggle = page.get_by_text("Написать сопроводительное", exact=False).first
+            if not _visible(toggle):
+                toggle = page.get_by_text("Добавить сопроводительное", exact=False).first
+            if _visible(toggle):
+                toggle.click(timeout=5000)
+                page.wait_for_timeout(400)
 
-            submit = page.get_by_text("Отправить", exact=True)
-            if submit.count() == 0:
-                submit = page.get_by_text("Откликнуться", exact=True)
-            if submit.count() == 0:
+            textarea = page.locator(
+                'textarea[data-qa="vacancy-response-popup-form-letter-input"], textarea:not([name^="task_"])'
+            ).first
+            if not _visible(textarea):
+                return {"status": "NEEDS_CONFIRMATION", "reason": "cover_letter_field_not_found"}
+            textarea.fill(proposal)
+            if textarea.input_value().strip() != proposal.strip():
+                return {"status": "FAILED", "reason": "cover_letter_not_preserved"}
+
+            submit = page.locator('button[data-qa*="vacancy-response-submit"]:visible').first
+            if not _visible(submit):
                 return {"status": "NEEDS_CONFIRMATION", "reason": "submit_button_not_found"}
 
-            submit.first.click(timeout=10000)
-            page.wait_for_timeout(1200)
+            submit.click(timeout=10000)
+            page.wait_for_timeout(1000)
+
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
+            success = page.locator(
+                '[data-qa="vacancy-response-success"], [data-qa="vacancy-response-link-view-topic"]'
+            ).first
+            if _visible(success):
+                return {"status": "SUBMITTED", "reason": "browser_hh_sent"}
+
             body = (page.locator("body").inner_text(timeout=5000) or "").lower()
-            success_markers = (
-                "вы откликнулись", "отклик отправлен", "резюме доставлено", "application sent",
-            )
-            if any(marker in body for marker in success_markers):
+            if any(x in body for x in ("вы откликнулись", "отклик отправлен", "резюме доставлено")):
                 return {"status": "SUBMITTED", "reason": "browser_hh_sent"}
             return {"status": "NEEDS_CONFIRMATION", "reason": "submission_not_confirmed"}
 
