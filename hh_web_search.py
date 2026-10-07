@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 from browser_apply import _storage_state, _looks_like_challenge
 
 JUNIOR = re.compile(r"(?<![a-z])(?:junior|джуниор|джун)(?![a-zа-я])", re.I)
-EXCLUDED = re.compile(r"middle|senior|lead|trainee|intern|стаж[её]р|стажиров|junior\\s*\\+|junior\\s+plus", re.I)
+EXCLUDED = re.compile(r"middle|senior|lead|trainee|intern|стаж[её]р|стажиров|junior\s*\+|junior\s+plus", re.I)
 
 
 def search_hh_web(category, query):
