@@ -18,8 +18,8 @@ BLOCK = (
     "coreldraw", "полиграф", "типограф", "для печати", "визитк",
     "логотип", "illustrator", "интерьер", "3d-модел",
 )
-RUSSIA_SOURCES = {"hh", "habr_career", "trudvsem", "fl_ru", "habr_freelance", "freelancehunt"}
-INTERNATIONAL_SOURCES = {"remoteok", "jobicy", "remotive", "weworkremotely", "arbeitnow", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
+RUSSIA_SOURCES = {"hh", "habr_career", "trudvsem", "geekjob", "getmatch", "zarplata", "superjob", "fl_ru", "habr_freelance", "freelancehunt"}
+INTERNATIONAL_SOURCES = {"remoteok", "jobicy", "remotive", "weworkremotely", "arbeitnow", "jooble", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
 FREELANCE_SOURCES = {"fl_ru", "habr_freelance", "freelancehunt", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
 TARGET_TITLE_TERMS = (
     "frontend", "front-end", "react", "typescript", "javascript",
