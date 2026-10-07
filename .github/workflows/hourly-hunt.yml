@@ -18,6 +18,8 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       MATCH_NOTIFY_MIN_SCORE: "70"
+      AUTO_FREELANCE_APPLY: "1"
+      FREELANCEHUNT_TOKEN: ${{ secrets.FREELANCEHUNT_TOKEN }}
       AUTO_SEND_EMAIL: "1"
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}

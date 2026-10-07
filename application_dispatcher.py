@@ -12,6 +12,7 @@ from email.message import EmailMessage
 
 from application_schedule import application_time_allowed
 from browser_apply import dispatch_browser
+from freelancehunt_adapter import add_bid
 
 
 def _send_email(lead, proposal):
@@ -63,6 +64,9 @@ def dispatch(lead, proposal):
 
     if lead.get("paid_bid") is True:
         return {"status": "SKIPPED", "reason": "paid_bid"}
+
+    if lead.get("source") == "freelancehunt" and lead.get("can_api_bid"):
+        return add_bid(lead, proposal)
 
     email_result = _send_email(lead, proposal)
     if email_result is not None:

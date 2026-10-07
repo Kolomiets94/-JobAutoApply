@@ -1,5 +1,6 @@
 """Freelancehunt API adapter. Token stays in environment, never in git."""
 import os, requests
+from application_schedule import application_time_allowed
 
 BASE="https://api.freelancehunt.com/v2"
 
@@ -22,22 +23,54 @@ def collect_freelancehunt():
           "description":a.get("description_html") or a.get("description") or "",
           "budget":budget,"published":a.get("published_at"),
           "url":f"https://freelancehunt.com/project/{row.get('id')}.html",
+          "is_only_for_plus":bool(a.get("is_only_for_plus")),
+          "is_premium":bool(a.get("is_premium")),
           "can_api_bid":True})
     return out
 
-def add_bid(lead,proposal,days=3):
-    h=_headers()
-    if not h: return {"status":"SHORTLISTED","reason":"freelancehunt_token_missing"}
-    budget=lead.get("budget") or {}
-    amount=budget.get("amount")
-    currency=budget.get("currency")
-    if not amount or currency not in ("UAH","RUB"):
-        return {"status":"NEEDS_CONFIRMATION","reason":"budget_missing"}
-    body={"days":days,"safe_type":"employer",
-          "budget":{"amount":amount,"currency":currency},
-          "comment":proposal,"is_hidden":False}
-    r=requests.post(f"{BASE}/projects/{lead['external_id']}/bids",
-                    headers={**h,"Content-Type":"application/json"},json=body,timeout=20)
-    if r.status_code in (200,201):
-        return {"status":"SUBMITTED","reason":"freelancehunt_api_bid"}
-    return {"status":"FAILED","reason":f"freelancehunt_http_{r.status_code}"}
+def add_bid(lead, proposal, days=None):
+    if os.getenv("AUTO_FREELANCE_APPLY", "0") != "1":
+        return {"status": "SHORTLISTED", "reason": "freelance_apply_disabled"}
+    if not application_time_allowed():
+        return {"status": "SKIPPED", "reason": "outside_application_hours"}
+    h = _headers()
+    if not h:
+        return {"status": "NEEDS_HUMAN", "reason": "freelancehunt_token_missing"}
+    if lead.get("paid_bid") or lead.get("is_only_for_plus") or lead.get("is_premium"):
+        return {"status": "SKIPPED", "reason": "paid_bid"}
+    budget = lead.get("budget") or {}
+    amount, currency = budget.get("amount"), budget.get("currency")
+    # Only compare currencies for which the user supplied a minimum; never guess FX.
+    floors = {"RUB": 2000, "USD": 50}
+    if currency not in floors or not isinstance(amount, (int, float)):
+        return {"status": "NEEDS_CONFIRMATION", "reason": "bid_budget_requires_review"}
+    if amount < floors[currency]:
+        return {"status": "SKIPPED", "reason": "freelance_budget_below_floor"}
+    title = str(lead.get("title") or "").lower()
+    if days is None:
+        if any(x in title for x in ("исправ", "правк", "fix", "bug")):
+            days = 1
+        elif any(x in title for x in ("верст", "вёрст", "landing", "лендинг")):
+            days = 3
+    if days is None:
+        return {"status": "NEEDS_CONFIRMATION", "reason": "project_duration_requires_review"}
+    project_id = str(lead.get("external_id") or "")
+    if not project_id.isdigit():
+        return {"status": "FAILED", "reason": "invalid_project_id"}
+    comment = proposal + f"\nСтоимость: {amount} {currency}. Срок: {days} дн."
+    body = {"days": days, "safe_type": "employer",
+            "budget": {"amount": amount, "currency": currency},
+            "comment": comment, "is_hidden": False}
+    if not application_time_allowed():
+        return {"status": "SKIPPED", "reason": "outside_application_hours"}
+    r = requests.post(f"{BASE}/projects/{project_id}/bids",
+                      headers={**h, "Content-Type": "application/json"}, json=body, timeout=20)
+    if r.status_code not in (200, 201):
+        return {"status": "FAILED", "reason": f"freelancehunt_http_{r.status_code}"}
+    try:
+        data = r.json().get("data") or {}
+    except ValueError:
+        data = {}
+    if not data.get("id") or (data.get("attributes") or {}).get("comment") != comment:
+        return {"status": "NEEDS_CONFIRMATION", "reason": "freelancehunt_bid_not_confirmed"}
+    return {"status": "SUBMITTED", "reason": "freelancehunt_api_bid", "bid_id": str(data["id"])}

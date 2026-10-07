@@ -73,6 +73,14 @@ def make_proposal(lead):
     text = f"{title} {description}".lower()
     category = str(lead.get("category") or "").lower()
 
+    from profit_ranker import FREELANCE_SOURCES
+    if lead.get("source") in FREELANCE_SOURCES:
+        skills = _skills(text) or ["HTML", "CSS", "JavaScript"]
+        return (f"Здравствуйте! Готов выполнить задачу «{title}». "
+                f"В собственных проектах работал с {', '.join(skills)}: адаптивные интерфейсы, "
+                "API-интеграции, формы и обработка ошибок. "
+                "Перед началом согласуем конкретный объём работ; результат проверю на разных размерах экрана.")
+
     if lead.get("language") == "en":
         greeting = f"Hello {company} team!" if company else "Hello!"
         if category == "qa":
