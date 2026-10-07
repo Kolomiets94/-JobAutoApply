@@ -5,7 +5,18 @@ from playwright.sync_api import sync_playwright
 from browser_apply import _storage_state, _looks_like_challenge
 
 JUNIOR = re.compile(r"(?<![a-z])(?:junior|джуниор|джун)(?![a-zа-я])", re.I)
-EXCLUDED = re.compile(r"middle|senior|lead|trainee|intern|стаж[её]р|стажиров|junior\s*\+|junior\s+plus", re.I)
+EXCLUDED = re.compile(r"full[ -]?stack|фул[ -]?ст[еэ]к|middle|senior|lead|trainee|intern|стаж[её]р|стажиров|junior\s*\+|junior\s+plus", re.I)
+
+
+def title_matches_category(title, category):
+    if not JUNIOR.search(title) or EXCLUDED.search(title):
+        return False
+    terms = {
+        "frontend": r"front[ -]?end|фронт[ -]?енд|фронт[ -]?энд|react|javascript|typescript",
+        "layout": r"верст|вёрст|html|css",
+        "qa": r"\\bqa\\b|tester|тестиров|quality assurance",
+    }
+    return bool(re.search(terms.get(category, r"(?!)"), title, re.I))
 
 
 def search_hh_web(category, query):
@@ -40,7 +51,7 @@ def search_hh_web(category, query):
             results = []
             for card in cards:
                 title = card.get("title", "")
-                if not JUNIOR.search(title) or EXCLUDED.search(title):
+                if not title_matches_category(title, category):
                     continue
                 results.append({
                     **card, "source": "hh", "category": category,
