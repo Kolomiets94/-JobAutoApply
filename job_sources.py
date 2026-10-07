@@ -4,6 +4,7 @@ import re
 from urllib.parse import urljoin
 from xml.etree import ElementTree as ET
 import requests
+import os
 
 UA = {'User-Agent': 'Mozilla/5.0 (compatible; JobFreelanceHunter/3.0)'}
 
@@ -92,6 +93,93 @@ def trudvsem():
     return out
 
 
+def public_listing(source, url, link_pattern, language='ru'):
+    """Collect public vacancy links from an HTML listing; application remains separate."""
+    page = response(url).text
+    out, seen = [], set()
+    for href, label in re.findall(link_pattern, page, re.I | re.S):
+        absolute = urljoin(url, html.unescape(href))
+        title = clean(label)
+        if not title or absolute in seen:
+            continue
+        seen.add(absolute)
+        out.append(job(source, title, absolute, title, language=language))
+    return out
+
+
+def geekjob():
+    # Public IT/Digital vacancy catalogue.
+    return public_listing(
+        'geekjob', 'https://geekjob.ru/vacancies',
+        r'href=["\\\']([^"\\\']*(?:/vacancy/|/vacancies/)[^"\\\']*)["\\\'][^>]*>(.*?)</a>'
+    )
+
+
+def getmatch():
+    # The URL itself requests Frontend + remote + Junior.
+    return public_listing(
+        'getmatch', 'https://getmatch.ru/vacancies/js_frontend/remote/junior',
+        r'href=["\\\']([^"\\\']*/vacancies/\\d+[^"\\\']*)["\\\'][^>]*>(.*?)</a>'
+    )
+
+
+def zarplata():
+    # Public remote Junior listing; the ranker still enforces role and salary rules.
+    return public_listing(
+        'zarplata', 'https://zarplata.ru/vacancies/junior-developer/udalennaya_rabota',
+        r'href=["\\\']([^"\\\']*/vacanc(?:y|ies)/[^"\\\']*)["\\\'][^>]*>(.*?)</a>'
+    )
+
+
+def superjob():
+    """Official SuperJob API when its app key is configured."""
+    key = os.getenv('SUPERJOB_API_KEY', '').strip()
+    if not key:
+        return []
+    r = requests.get(
+        'https://api.superjob.ru/2.0/vacancies/',
+        headers={**UA, 'X-Api-App-Id': key},
+        params={'keyword': 'junior frontend react', 'count': 100, 'page': 0},
+        timeout=20,
+    )
+    r.raise_for_status()
+    out = []
+    for v in r.json().get('objects', []):
+        if not v.get('is_archive') and v.get('link'):
+            out.append(job(
+                'superjob', v.get('profession'), v.get('link'),
+                v.get('candidat') or '', company=(v.get('client') or {}).get('title'),
+                language='ru',
+                salary={'from': v.get('payment_from'), 'to': v.get('payment_to'), 'currency': 'RUB'},
+            ))
+    return out
+
+
+def jooble():
+    """Official Jooble API when a key is configured."""
+    key = os.getenv('JOOBLE_API_KEY', '').strip()
+    if not key:
+        return []
+    r = requests.post(
+        f'https://jooble.org/api/{key}',
+        headers={'Content-Type': 'application/json', **UA},
+        json={'keywords': 'junior frontend react remote', 'location': ''},
+        timeout=20,
+    )
+    r.raise_for_status()
+    out = []
+    for v in r.json().get('jobs', []):
+        if v.get('link'):
+            out.append(job(
+                'jooble', v.get('title'), v.get('link'), v.get('snippet') or '',
+                company=v.get('company'), location=v.get('location'), language='en',
+                salary=v.get('salary'),
+            ))
+    return out
+
+
 JOB_COLLECTORS = (('habr_career', habr_career), ('trudvsem', trudvsem),
                   ('jobicy', jobicy), ('remotive', remotive),
-                  ('weworkremotely', weworkremotely), ('arbeitnow', arbeitnow))
+                  ('weworkremotely', weworkremotely), ('arbeitnow', arbeitnow),
+                  ('geekjob', geekjob), ('getmatch', getmatch), ('zarplata', zarplata),
+                  ('superjob', superjob), ('jooble', jooble))
