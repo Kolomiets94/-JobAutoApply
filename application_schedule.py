@@ -1,4 +1,4 @@
-"""Application hours use the candidate's timezone, including manual/delayed runs."""
+"""Application time policy: daily morning/afternoon batches, including weekends."""
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -6,5 +6,6 @@ TIMEZONE = ZoneInfo('Asia/Yekaterinburg')
 
 
 def application_time_allowed(now=None):
+    """Five two-hour batches start at 06:00 local; never start in the evening."""
     local = (now or datetime.now(TIMEZONE)).astimezone(TIMEZONE)
-    return local.weekday() < 5 and 6 <= local.hour < 18
+    return 6 <= local.hour < 16

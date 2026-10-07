@@ -4,7 +4,8 @@ import hashlib
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 DB_PATH = os.getenv("HUNTER_DB", "hunter.db")
 STATES = (
@@ -61,16 +62,26 @@ def was_submitted(lid):
     return get_state(lid) in ("SUBMITTED", "REPLIED", "WON")
 
 
-def submitted_today():
-    today = datetime.now(timezone.utc).date().isoformat()
+def submitted_today(bucket=None):
+    """Count each category separately using the candidate's local calendar day."""
+    from profit_ranker import FREELANCE_SOURCES
+    local = datetime.now(ZoneInfo("Asia/Yekaterinburg"))
+    start = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_utc = start.astimezone(timezone.utc).isoformat()
+    end_utc = (start + timedelta(days=1)).astimezone(timezone.utc).isoformat()
     with _db() as c:
-        row = c.execute(
-            """SELECT COUNT(*) FROM leads
+        rows = c.execute(
+            """SELECT source FROM leads
                WHERE state IN ('SUBMITTED','REPLIED','WON')
-               AND substr(updated_at,1,10)=?""",
-            (today,),
-        ).fetchone()
-    return int(row[0] if row else 0)
+               AND updated_at>=? AND updated_at<?""",
+            (start_utc, end_utc),
+        ).fetchall()
+    if bucket is None:
+        return len(rows)
+    if bucket not in ("jobs", "freelance"):
+        raise ValueError("invalid daily limit bucket")
+    return sum(1 for (source,) in rows
+               if ((str(source or "").lower() in FREELANCE_SOURCES) == (bucket == "freelance")))
 
 
 def list_queue(limit=100):

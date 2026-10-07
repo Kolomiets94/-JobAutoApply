@@ -132,12 +132,18 @@ def run():
     if not application_time_allowed():
         return {"stats": {"submitted": 0}, "results": [],
                 "reason": "outside_application_hours",
-                "application_window": "Mon-Fri 06:00-18:00 Asia/Yekaterinburg"}
+                "application_window": "Daily batches 06:00,08:00,10:00,12:00,14:00 Asia/Yekaterinburg"}
     leads = apply_resume_matching(collect_all())
     ranked = rank_leads(leads)
 
-    daily_limit = int(os.getenv("DAILY_APPLICATION_LIMIT", "10"))
-    submitted_count = submitted_today()
+    daily_limits = {
+        "jobs_submitted": int(os.getenv("DAILY_JOB_LIMIT", "10")),
+        "freelance_submitted": int(os.getenv("DAILY_FREELANCE_LIMIT", "10")),
+    }
+    daily_counts = {"jobs_submitted": submitted_today("jobs"),
+                    "freelance_submitted": submitted_today("freelance")}
+    daily_limit = sum(daily_limits.values())
+    submitted_count = sum(daily_counts.values())
     job_limit = int(os.getenv("HOURLY_JOB_LIMIT", "2"))
     freelance_limit = int(os.getenv("HOURLY_FREELANCE_LIMIT", "2"))
 
@@ -189,7 +195,7 @@ def run():
             })
             continue
 
-        if submitted_count >= daily_limit:
+        if daily_counts[bucket] >= daily_limits[bucket]:
             stats["daily_limit_skipped"] += 1
             results.append({
                 "id": lid,
@@ -217,6 +223,7 @@ def run():
 
             if state == "SUBMITTED":
                 submitted_count += 1
+                daily_counts[bucket] += 1
                 stats["submitted"] += 1
                 stats[bucket] += 1
             else:
@@ -258,6 +265,10 @@ def run():
     stats["hourly_job_limit"] = job_limit
     stats["hourly_freelance_limit"] = freelance_limit
     stats["submitted_today_total"] = submitted_count
+    stats["jobs_submitted_today"] = daily_counts["jobs_submitted"]
+    stats["freelance_submitted_today"] = daily_counts["freelance_submitted"]
+    stats["daily_job_limit"] = daily_limits["jobs_submitted"]
+    stats["daily_freelance_limit"] = daily_limits["freelance_submitted"]
 
     detail_lines = []
     for item in results[:8]:
@@ -282,7 +293,8 @@ def run():
         f"Shortlisted (not sent): {stats['shortlisted']}\n"
         f"Needs confirmation: {stats['needs_confirmation']}\n"
         f"Telegram vacancy alerts sent: {stats['notifications_sent']}\n"
-        f"Submitted today: {stats['submitted_today_total']}/{stats['daily_application_limit']}\n\n"
+        f"Jobs submitted today: {stats['jobs_submitted_today']}/{stats['daily_job_limit']}\n"
+        f"Freelance submitted today: {stats['freelance_submitted_today']}/{stats['daily_freelance_limit']}\n\n"
         "Results:\n" + ("\n".join(detail_lines) if detail_lines else "No ranked results")
     )
     summary_message += "\n\nSources: " + ", ".join(f"{name}: {count}" for name, count in source_counts.items())
