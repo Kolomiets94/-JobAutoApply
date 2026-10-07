@@ -92,6 +92,22 @@ def _location_rejected(lead: Dict[str, Any], text: str) -> bool:
     return any(x in text for x in restricted)
 
 
+def _role_category(lead: Dict[str, Any]) -> str:
+    """Route jobs to the user's preferred role/resume order."""
+    title = str(lead.get("title") or "").lower()
+    # Frontend wins even when HTML/CSS also appears in the title.
+    if any(x in title for x in ("frontend", "front-end", "react", "typescript", "javascript")):
+        return "frontend"
+    if any(x in title for x in ("верстальщик", "верстка", "вёрстка", "html", "css")):
+        return "layout"
+    if any(x in title for x in ("qa", "tester", "тестировщик", "quality assurance", "manual test")):
+        return "qa"
+    return str(lead.get("category") or "other").lower()
+
+
+ROLE_PRIORITY = {"frontend": 0, "layout": 1, "qa": 2}
+
+
 def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
     text = _text(lead)
     if any(x in text for x in BLOCK):
@@ -128,16 +144,25 @@ def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
     resume_score = (resume_match / 100.0) if isinstance(resume_match, (int, float)) else 0
 
     score = round(min(100, (fit * .45 + budget_score * .25 + quick + comp_score + resume_score * .25) * 100))
+    category = _role_category(lead)
     return {
         **lead,
+        "category": category,
+        "role_priority": ROLE_PRIORITY.get(category, 99),
         "profit_score": score,
         # One relevant skill is enough to enter the shortlist; safety filters above still apply.
         "eligible": bool(matched) and score >= 8,
         "matched_skills": matched,
-        "rank_reason": "skill fit + budget + speed + competition + resume fit",
+        "rank_reason": "role priority + skill fit + budget + speed + competition + resume fit",
     }
 
 
 def rank_leads(leads):
     ranked = [rank_lead(x) for x in leads]
-    return sorted((x for x in ranked if x["eligible"]), key=lambda x: x["profit_score"], reverse=True)
+    eligible = (x for x in ranked if x["eligible"])
+    # Primary order requested by the user: Frontend -> layout -> QA.
+    # Within the same role, keep the strongest fit/profit score first.
+    return sorted(
+        eligible,
+        key=lambda x: (x.get("role_priority", 99), -x.get("profit_score", 0)),
+    )
