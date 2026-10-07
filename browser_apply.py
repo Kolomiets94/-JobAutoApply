@@ -140,13 +140,77 @@ def _select_resume(page, category):
     return False
 
 
-def _questionnaire_required(page):
-    if page.locator('textarea[name^="task_"]').count():
-        return True
-    body = (page.locator("body").inner_text(timeout=5000) or "").lower()
-    return any(x in body for x in (
-        "ответьте на вопросы работодателя", "вопросы работодателя", "обязательный вопрос",
-    ))
+def _known_question_answer(question, category):
+    """Return only answers grounded in the candidate profile; never guess."""
+    q = _norm(question)
+    if any(x in q for x in ("английск", "english", "уровень языка")):
+        return "B1 (Intermediate): читаю техническую документацию и могу базово общаться в команде."
+    if any(x in q for x in ("город", "где вы жив", "где прожива", "локац")):
+        return "Екатеринбург. Рассматриваю удалённую работу."
+    if any(x in q for x in ("ожидания по зарплат", "зарплатные ожидания", "желаемая зарплат", "salary expectation")):
+        return "От 60 000 ₽ в месяц для вакансий в России; готов обсуждать условия."
+    if any(x in q for x in ("коммерческ", "опыт работы", "сколько лет опыта", "years of experience")):
+        return (
+            "Коммерческого опыта пока нет. Есть практические проекты: React, TypeScript, "
+            "REST API, авторизация, CRUD, валидация, обработка ошибок и адаптивная вёрстка."
+        )
+    if any(x in q for x in ("react", "typescript", "javascript", "redux", "rest api", "html", "css", "scss")):
+        return (
+            "Работаю с React, TypeScript, JavaScript ES6+, Redux Toolkit, REST API, "
+            "HTML5, CSS3/SCSS, Git, Figma и Vite/Webpack."
+        )
+    if category == "qa" and any(x in q for x in ("тестирован", "qa", "баг", "bug", "test case", "чек-лист")):
+        return (
+            "В своих веб-проектах вручную проверял формы, API-интеграции, валидацию "
+            "и обработку ошибок. Понимаю клиентскую часть благодаря опыту с React и TypeScript."
+        )
+    if any(x in q for x in ("удален", "удалён", "remote")):
+        return "Да, готов работать удалённо."
+    if any(x in q for x in ("когда готовы", "когда можете", "дата выхода", "приступить")):
+        return "Готов приступить в ближайшее время."
+    return None
+
+
+def _answer_known_questions(page, category):
+    """Answer free-text employer questions only when a truthful canned answer is known.
+
+    Returns (ok, unanswered_questions). Unknown questions remain untouched and block submit.
+    """
+    unanswered = []
+    fields = page.locator('textarea[name^="task_"], input[name^="task_"]:not([type="hidden"]):not([type="radio"]):not([type="checkbox"])')
+    for i in range(fields.count()):
+        field = fields.nth(i)
+        if not _visible(field):
+            continue
+        try:
+            container = field.locator("xpath=ancestor::*[self::div or self::fieldset][1]")
+            question = container.inner_text(timeout=1000) if container.count() else ""
+        except Exception:
+            question = ""
+        answer = _known_question_answer(question, category)
+        if not answer:
+            unanswered.append(_norm(question)[:180] or "unknown_question")
+            continue
+        try:
+            field.fill(answer)
+        except Exception:
+            unanswered.append(_norm(question)[:180] or "unfillable_question")
+
+    # Choice questions can materially change eligibility. Do not guess them.
+    choice_controls = page.locator('input[name^="task_"][type="radio"], input[name^="task_"][type="checkbox"], select[name^="task_"]')
+    for i in range(choice_controls.count()):
+        control = choice_controls.nth(i)
+        if _visible(control):
+            try:
+                container = control.locator("xpath=ancestor::*[self::div or self::fieldset][1]")
+                question = container.inner_text(timeout=1000) if container.count() else "choice_question"
+            except Exception:
+                question = "choice_question"
+            normalized = _norm(question)[:180]
+            if normalized not in unanswered:
+                unanswered.append(normalized)
+
+    return not unanswered, unanswered
 
 
 def _find_letter_area(page):
@@ -241,8 +305,13 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
             if not _select_resume(page, category):
                 return {"status": "NEEDS_CONFIRMATION", "reason": "matching_resume_selector_not_found"}
 
-            if _questionnaire_required(page):
-                return {"status": "NEEDS_CONFIRMATION", "reason": "employer_questions_require_human"}
+            questions_ok, unanswered = _answer_known_questions(page, category)
+            if not questions_ok:
+                return {
+                    "status": "NEEDS_CONFIRMATION",
+                    "reason": "unknown_employer_question",
+                    "detail": unanswered[0] if unanswered else "unknown_question",
+                }
 
             textarea = _find_letter_area(page)
             if textarea is None:
