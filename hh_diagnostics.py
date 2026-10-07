@@ -46,6 +46,15 @@ def diagnose():
             result["session"] = type(exc).__name__
         finally:
             browser.close()
+    if result["session"] == "authenticated":
+        try:
+            from hh_web_search import search_hh_web
+            leads = search_hh_web("frontend", "Junior Frontend React")
+            result["web_search"] = "ok"
+            result["web_search_count"] = len(leads)
+            result["web_search_titles"] = [lead["title"] for lead in leads[:5]]
+        except Exception as exc:
+            result["web_search"] = type(exc).__name__
     return result
 
 
