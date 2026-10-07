@@ -5,6 +5,9 @@ The module never bypasses CAPTCHA, 2FA, login challenges, or paid actions.
 Actual submission requires AUTO_BROWSER_APPLY=1.
 """
 
+import base64
+import gzip
+import io
 import json
 import os
 from typing import Dict
@@ -43,8 +46,16 @@ def _storage_state(storage_state=None):
     raw_json = os.getenv("HH_STORAGE_STATE_JSON", "").strip()
     if raw_json:
         try:
+            if raw_json.startswith("gzip-base64:"):
+                encoded = raw_json.removeprefix("gzip-base64:")
+                compressed = base64.b64decode(encoded, validate=True)
+                with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as stream:
+                    payload = stream.read(5 * 1024 * 1024 + 1)
+                if len(payload) > 5 * 1024 * 1024:
+                    raise ValueError("HH session exceeds decompressed size limit")
+                return json.loads(payload)
             return json.loads(raw_json)
-        except json.JSONDecodeError:
+        except (ValueError, OSError, EOFError):
             return None
 
     path = os.getenv("HH_STORAGE_STATE", "").strip()
