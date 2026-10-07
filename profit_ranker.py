@@ -102,6 +102,18 @@ def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
         return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "explicit location/work-authorization restriction"}
 
     source = str(lead.get("source") or "").lower()
+    title = str(lead.get("title") or "").lower()
+    if source not in FREELANCE_SOURCES:
+        if any(x in title for x in NON_TARGET_TITLE_TERMS):
+            return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "non-target job title"}
+        if not any(x in title for x in TARGET_TITLE_TERMS):
+            return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "job title outside target roles"}
+        junior_markers = ("junior", "jr.", "jr ", "джуниор", "джун")
+        if not any(x in title for x in junior_markers):
+            return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "not explicitly Junior"}
+        if re.search(r"junior\s*\+|junior\s+plus|джун(?:иор)?\s*\+", title):
+            return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "Junior+ excluded"}
+
     if source in FREELANCE_SOURCES and any(x in text for x in FREELANCE_TOO_COMPLEX):
         return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "freelance project too complex/out of scope"}
 
