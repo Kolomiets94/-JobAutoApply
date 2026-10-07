@@ -8,6 +8,7 @@ on:
       - "proposal_writer.py"
       - "profit_ranker.py"
       - "hh_web_search.py"
+      - "worker.py"
   workflow_dispatch:
 
 concurrency:
