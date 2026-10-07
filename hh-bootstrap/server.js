@@ -69,7 +69,9 @@ async function digit(d){await post('/key',{key:d})}
 async function key(k){await post('/key',{key:k})}
 async function nav(){await post('/nav')}
 async function back(){await post('/back')}
-setInterval(refresh,2500);
+let refreshing=false;
+async function safeRefresh(){if(refreshing)return; refreshing=true; try{await new Promise((resolve)=>{shot.onload=shot.onerror=resolve; refresh(); setTimeout(resolve,8000)});}finally{refreshing=false}}
+setInterval(safeRefresh,10000);
 </script>`);
   } catch (e) { next(e); }
 });
@@ -77,7 +79,7 @@ setInterval(refresh,2500);
 app.get("/shot", guard, async (_req, res, next) => {
   try {
     const p = await ensureBrowser();
-    const buf = await p.screenshot({ type: "jpeg", quality: 72 });
+    const buf = await p.screenshot({ type: "jpeg", quality: 65, animations: "disabled", timeout: 8000 });
     res.type("jpg").send(buf);
   } catch (e) { next(e); }
 });
