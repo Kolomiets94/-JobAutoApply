@@ -160,22 +160,34 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
                     return {"status": "NEEDS_HUMAN", "reason": "login_required"}
                 return {"status": "SKIPPED", "reason": "respond_button_not_found"}
 
-            respond.click(timeout=10000)
+            # Use a pre-submit flow so we can verify the correct resume before any response is sent.
+            opened_form = False
+            with_letter = page.get_by_text("Написать сопроводительное", exact=False).first
+            if _visible(with_letter):
+                with_letter.click(timeout=7000)
+                opened_form = True
+            else:
+                dropdown = page.locator(
+                    '[data-qa="vacancy-response-link-top"] + button, [data-qa="vacancy-response-link-bottom"] + button'
+                ).first
+                if _visible(dropdown):
+                    dropdown.click(timeout=5000)
+                    page.wait_for_timeout(300)
+                    option = page.get_by_text("С сопроводительным письмом", exact=False).first
+                    if _visible(option):
+                        option.click(timeout=5000)
+                        opened_form = True
+
+            if not opened_form:
+                # Clicking the plain response button can submit immediately with HH's default resume.
+                # Refuse that unsafe path because this automation must use the role-matched resume.
+                return {"status": "NEEDS_CONFIRMATION", "reason": "safe_pre_submit_flow_unavailable"}
+
             page.wait_for_timeout(700)
             _confirm_relocation_warning(page)
 
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
-
-            # HH can sometimes submit immediately with the currently active resume.
-            post_submit_attach = page.locator(
-                'button[data-qa="responded-success-attach-cover-letter"]'
-            ).first
-            if _visible(post_submit_attach):
-                return {
-                    "status": "NEEDS_CONFIRMATION",
-                    "reason": "hh_submitted_before_resume_verification",
-                }
 
             category = str(lead.get("category") or "frontend").lower()
             if not _select_resume(page, category):
