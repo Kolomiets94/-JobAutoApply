@@ -45,17 +45,17 @@ def collect_all():
         except Exception as exc:
             record_collection_error("hh", exc)
 
-    for collector in (
-        remoteok,
-        collect_freelance,
-        collect_peopleperhour,
-        collect_prolinker,
-        collect_freelancehunt,
+    for source, collector in (
+        ("remoteok", remoteok),
+        ("freelance", collect_freelance),
+        ("peopleperhour", collect_peopleperhour),
+        ("prolinker", collect_prolinker),
+        ("freelancehunt", collect_freelancehunt),
     ):
         try:
             leads += collector()
         except Exception as exc:
-            record_collection_error(collector.__name__, exc)
+            record_collection_error(source, exc)
 
     seen = set()
     unique = []
