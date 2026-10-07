@@ -8,6 +8,7 @@ app.use(express.urlencoded({ extended: false }));
 const TOKEN = process.env.BOOTSTRAP_TOKEN;
 if (!TOKEN) throw new Error("BOOTSTRAP_TOKEN is required");
 
+const CHROME_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"];
 let context;
 let page;
 
@@ -22,6 +23,7 @@ async function ensureBrowser() {
   if (page && !page.isClosed()) return page;
   context = await chromium.launchPersistentContext("/tmp/hh-profile", {
     headless: true,
+    args: CHROME_ARGS,
     viewport: { width: 390, height: 844 },
     locale: "ru-RU",
   });
@@ -32,10 +34,11 @@ async function ensureBrowser() {
 
 app.get("/health", (_req, res) => res.send("ok"));
 
-app.get("/", guard, async (req, res) => {
-  await ensureBrowser();
-  const t = encodeURIComponent(TOKEN);
-  res.type("html").send(`<!doctype html>
+app.get("/", guard, async (_req, res, next) => {
+  try {
+    await ensureBrowser();
+    const t = encodeURIComponent(TOKEN);
+    res.type("html").send(`<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>HH Session Bootstrap</title>
 <style>
@@ -61,42 +64,57 @@ async function nav(){await post('/nav')}
 async function back(){await post('/back')}
 setInterval(refresh,2500);
 </script>`);
+  } catch (e) { next(e); }
 });
 
-app.get("/shot", guard, async (_req, res) => {
-  const p = await ensureBrowser();
-  const buf = await p.screenshot({ type: "jpeg", quality: 72 });
-  res.type("jpg").send(buf);
+app.get("/shot", guard, async (_req, res, next) => {
+  try {
+    const p = await ensureBrowser();
+    const buf = await p.screenshot({ type: "jpeg", quality: 72 });
+    res.type("jpg").send(buf);
+  } catch (e) { next(e); }
 });
-app.post("/click", guard, async (req, res) => {
-  const p = await ensureBrowser();
-  await p.mouse.click(Number(req.body.x), Number(req.body.y));
-  res.json({ ok: true });
+app.post("/click", guard, async (req, res, next) => {
+  try { const p = await ensureBrowser(); await p.mouse.click(Number(req.body.x), Number(req.body.y)); res.json({ ok: true }); }
+  catch (e) { next(e); }
 });
-app.post("/type", guard, async (req, res) => {
-  const p = await ensureBrowser();
-  await p.keyboard.type(String(req.body.text || ""), { delay: 25 });
-  res.json({ ok: true });
+app.post("/type", guard, async (req, res, next) => {
+  try { const p = await ensureBrowser(); await p.keyboard.type(String(req.body.text || ""), { delay: 25 }); res.json({ ok: true }); }
+  catch (e) { next(e); }
 });
-app.post("/key", guard, async (req, res) => {
-  const p = await ensureBrowser();
-  await p.keyboard.press(String(req.body.key || "Enter"));
-  res.json({ ok: true });
+app.post("/key", guard, async (req, res, next) => {
+  try { const p = await ensureBrowser(); await p.keyboard.press(String(req.body.key || "Enter")); res.json({ ok: true }); }
+  catch (e) { next(e); }
 });
-app.post("/nav", guard, async (_req, res) => {
-  const p = await ensureBrowser();
-  await p.goto("https://hh.ru/applicant/profile/me", { waitUntil: "domcontentloaded", timeout: 60000 });
-  res.json({ ok: true });
+app.post("/nav", guard, async (_req, res, next) => {
+  try { const p = await ensureBrowser(); await p.goto("https://hh.ru/applicant/profile/me", { waitUntil: "domcontentloaded", timeout: 60000 }); res.json({ ok: true }); }
+  catch (e) { next(e); }
 });
-app.post("/back", guard, async (_req, res) => {
-  const p = await ensureBrowser(); await p.goBack({ waitUntil: "domcontentloaded", timeout: 30000 }).catch(()=>{});
-  res.json({ ok: true });
+app.post("/back", guard, async (_req, res, next) => {
+  try { const p = await ensureBrowser(); await p.goBack({ waitUntil: "domcontentloaded", timeout: 30000 }).catch(()=>{}); res.json({ ok: true }); }
+  catch (e) { next(e); }
 });
-app.get("/state", guard, async (_req, res) => {
-  await ensureBrowser();
-  const state = await context.storageState();
-  res.setHeader("Content-Disposition", 'attachment; filename="hh-state.json"');
-  res.type("application/json").send(JSON.stringify(state));
+app.get("/state", guard, async (_req, res, next) => {
+  try {
+    await ensureBrowser();
+    const state = await context.storageState();
+    res.setHeader("Content-Disposition", 'attachment; filename="hh-state.json"');
+    res.type("application/json").send(JSON.stringify(state));
+  } catch (e) { next(e); }
 });
 
-app.listen(process.env.PORT || 10000, "0.0.0.0", () => console.log("HH bootstrap ready"));
+app.use((err, _req, res, _next) => {
+  console.error("request_error", err);
+  res.status(500).send("Browser service error");
+});
+
+const port = process.env.PORT || 10000;
+try {
+  const probe = await chromium.launch({ headless: true, args: CHROME_ARGS });
+  await probe.close();
+  console.log("Chromium self-test passed");
+  app.listen(port, "0.0.0.0", () => console.log("HH bootstrap ready"));
+} catch (e) {
+  console.error("Chromium self-test failed", e);
+  process.exit(1);
+}
