@@ -58,6 +58,35 @@ def diagnose():
     return result
 
 
+
+def inspect_response_form():
+    state = _storage_state()
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        try:
+            context = browser.new_context(storage_state=state, locale="ru-RU")
+            page = context.new_page()
+            page.goto("https://hh.ru/vacancy/137786463", wait_until="domcontentloaded", timeout=45000)
+            if _looks_like_challenge(page):
+                return {"status": "security_challenge"}
+            respond = page.get_by_text("Откликнуться", exact=True)
+            if not respond.count():
+                return {"status": "respond_button_not_found"}
+            respond.first.click(timeout=10000)
+            page.wait_for_timeout(1500)
+            if _looks_like_challenge(page):
+                return {"status": "security_challenge"}
+            return {
+                "status": "form_opened",
+                "controls": page.evaluate("""() => Array.from(document.querySelectorAll('input,select,textarea,button,[role="radio"],[role="combobox"]')).map(e=>({tag:e.tagName,type:e.type||'',role:e.getAttribute('role')||'',qa:e.getAttribute('data-qa')||'',name:e.getAttribute('name')||'',label:e.getAttribute('aria-label')||'',text:(e.innerText||'').slice(0,120)})).slice(-60)"""),
+                "labels": page.locator("label").all_text_contents(),
+                "form_text": page.locator('form').all_text_contents(),
+            }
+        finally:
+            browser.close()
+
+
 if __name__ == "__main__":
     result = diagnose()
+    result["response_form"] = inspect_response_form()
     print(json.dumps(result, ensure_ascii=False))
