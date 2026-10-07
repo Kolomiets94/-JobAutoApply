@@ -14,7 +14,7 @@ def title_matches_category(title, category):
     terms = {
         "frontend": r"front[ -]?end|фронт[ -]?енд|фронт[ -]?энд|react|javascript|typescript",
         "layout": r"верст|вёрст|html|css",
-        "qa": r"\\bqa\\b|tester|тестиров|quality assurance",
+        "qa": r"\bqa\b|tester|тестиров|quality assurance",
     }
     return bool(re.search(terms.get(category, r"(?!)"), title, re.I))
 
