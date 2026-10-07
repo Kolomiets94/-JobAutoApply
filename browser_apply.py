@@ -354,9 +354,77 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
             browser.close()
 
 
+
+def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
+    """Submit Remote-job.ru's public response form, failing closed on missing identity or confirmation."""
+    raw_url = str(lead.get("url") or "")
+    if "remote-job.ru/vacancy/" not in raw_url:
+        return {"status": "SKIPPED", "reason": "unsupported_browser_source"}
+    if not _enabled():
+        return {"status": "SHORTLISTED", "reason": "browser_apply_disabled"}
+
+    name = os.getenv("REMOTE_JOB_NAME", "").strip()
+    email = os.getenv("REMOTE_JOB_EMAIL", "").strip()
+    phone = os.getenv("REMOTE_JOB_PHONE", "").strip()
+    if not all((name, email, phone)):
+        return {"status": "NEEDS_HUMAN", "reason": "remote_job_identity_missing"}
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=os.getenv("BROWSER_HEADLESS", "1") != "0")
+        try:
+            page = browser.new_page(locale="ru-RU")
+            page.goto(raw_url, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(900)
+            if _looks_like_challenge(page):
+                return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
+
+            # Public response form labels currently shown by Remote-job.ru.
+            fields = {
+                "name": page.get_by_label("Имя", exact=True).first,
+                "email": page.get_by_label("Email", exact=True).first,
+                "phone": page.get_by_label("Телефон", exact=True).first,
+                "answer": page.get_by_label("Ответ на вакансию", exact=True).first,
+            }
+            if not all(_visible(x) for x in fields.values()):
+                return {"status": "NEEDS_CONFIRMATION", "reason": "remote_job_form_not_found"}
+
+            fields["name"].fill(name)
+            fields["email"].fill(email)
+            fields["phone"].fill(phone)
+            fields["answer"].fill(proposal)
+
+            # Newsletter consent is optional and deliberately left unchecked.
+            submit = page.get_by_role("button", name="Отправить отклик", exact=True).first
+            if not _visible(submit):
+                return {"status": "NEEDS_CONFIRMATION", "reason": "submit_button_not_found"}
+            if not application_time_allowed():
+                return {"status": "SKIPPED", "reason": "outside_application_hours"}
+
+            submit.click(timeout=10000)
+            page.wait_for_timeout(1600)
+            if _looks_like_challenge(page):
+                return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
+
+            body = _norm(page.locator("body").inner_text(timeout=5000))
+            success_phrases = (
+                "отклик отправлен", "отклик успешно отправлен", "спасибо за отклик",
+                "ваш отклик отправлен", "отклик оставлен",
+            )
+            if any(x in body for x in success_phrases):
+                return {"status": "SUBMITTED", "reason": "browser_remote_job_sent"}
+            # Never infer success from a click alone.
+            return {"status": "NEEDS_CONFIRMATION", "reason": "submission_not_confirmed"}
+        except PlaywrightTimeoutError:
+            return {"status": "FAILED", "reason": "browser_timeout"}
+        finally:
+            browser.close()
+
+
 def dispatch_browser(lead: Dict, proposal: str) -> Dict[str, str]:
     source = str(lead.get("source") or lead.get("site") or "").lower()
     url = str(lead.get("url") or "").lower()
     if "hh" in source or "hh.ru" in url:
         return apply_hh(lead, proposal)
+    if source == "remote_job_ru" or "remote-job.ru/vacancy/" in url:
+        return apply_remote_job(lead, proposal)
     return {"status": "SKIPPED", "reason": "unsupported_browser_source"}
