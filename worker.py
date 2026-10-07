@@ -26,13 +26,24 @@ def load_resume_text():
         return ""
 
 
+COLLECTION_ERRORS = []
+
+
+def record_collection_error(source, exc):
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    reason = type(exc).__name__ + (f" HTTP {status}" if status else "")
+    COLLECTION_ERRORS.append({"source": source, "reason": reason})
+    print(f"[collector] {source}: {reason}", flush=True)
+
+
 def collect_all():
+    COLLECTION_ERRORS.clear()
     leads = []
     for tag, query in QUERIES:
         try:
             leads += hh_search(tag, query)
-        except Exception:
-            pass
+        except Exception as exc:
+            record_collection_error("hh", exc)
 
     for collector in (
         remoteok,
@@ -43,8 +54,8 @@ def collect_all():
     ):
         try:
             leads += collector()
-        except Exception:
-            pass
+        except Exception as exc:
+            record_collection_error(collector.__name__, exc)
 
     seen = set()
     unique = []
@@ -95,7 +106,15 @@ def run():
     job_limit = int(os.getenv("HOURLY_JOB_LIMIT", "2"))
     freelance_limit = int(os.getenv("HOURLY_FREELANCE_LIMIT", "2"))
 
+    source_counts = {}
+    for lead in leads:
+        source = str(lead.get("source") or "unknown")
+        source_counts[source] = source_counts.get(source, 0) + 1
+
     stats = {
+        "source_counts": source_counts,
+        "collection_errors": list(COLLECTION_ERRORS),
+        "resume_configured": bool(load_resume_text()),
         "found": len(leads),
         "ranked": len(ranked),
         "submitted": 0,
@@ -231,6 +250,11 @@ def run():
         f"Submitted today: {stats['submitted_today_total']}/{stats['daily_application_limit']}\n\n"
         "Results:\n" + ("\n".join(detail_lines) if detail_lines else "No ranked results")
     )
+    summary_message += "\n\nSources: " + ", ".join(f"{name}: {count}" for name, count in source_counts.items())
+    if COLLECTION_ERRORS:
+        summary_message += "\nSource errors: " + "; ".join(f"{item['source']}: {item['reason']}" for item in COLLECTION_ERRORS)
+    if not stats["resume_configured"]:
+        summary_message += "\nResume matching: not configured"
     try:
         summary_delivery = send_message(summary_message)
     except Exception as exc:
