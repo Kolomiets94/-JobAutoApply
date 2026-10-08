@@ -21,17 +21,27 @@ def response(url, **params):
 
 
 def explicit_application_email(description):
-    """Only infer an email from explicit application instructions, never arbitrary contacts."""
-    raw = html.unescape(str(description or ''))
-    pattern = r'href\\s*=\\s*["\\\']mailto:([^?"\\\'\\s<>]+)[^"\\\']*["\\\'][^>]*>(.*?)</a>'
-    for address, label in re.findall(pattern, raw, flags=re.I | re.S):
-        if re.search(r'\\b(apply|application|send (?:your )?(?:cv|resume)|submit (?:your )?(?:cv|resume))\\b|отклик|отправить резюме', clean(label), re.I):
-            if re.fullmatch(r'[^\\s@,;<>]+@[^\\s@,;<>]+\\.[^\\s@,;<>]+', address):
-                return address
+    """Extract only explicit application addresses, not general company contacts."""
+    raw = html.unescape(str(description or ""))
+    mailto_links = re.findall(
+        r"""href\s*=\s*["']mailto:([^?"'\s<>]+)[^"']*["'][^>]*>(.*?)</a>""",
+        raw, flags=re.I | re.S,
+    )
+    for address, label in mailto_links:
+        label_text = clean(label)
+        is_apply = re.search(
+            r"\b(apply|application|send (?:your )?(?:cv|resume)|submit (?:your )?(?:cv|resume))\b|отклик|отправить резюме",
+            label_text, re.I,
+        )
+        if is_apply and re.fullmatch(r"[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+", address):
+            return address
     plain = clean(raw)
-    pattern = r'(?:apply (?:by |via )?(?:email(?:ing)?|to)|send (?:your )?(?:cv|resume) to|отправ(?:ьте|ить) резюме (?:на|по адресу))\\s*:?\\s*([\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,})'
-    match = re.search(pattern, plain, flags=re.I)
+    match = re.search(
+        r"(?:apply (?:by |via )?(?:email(?:ing)?|to)|send (?:your )?(?:cv|resume) to|отправ(?:ьте|ить) резюме (?:на|по адресу))\s*:?\s*([\w.+-]+@[\w.-]+\.[A-Za-z]{2,})",
+        plain, re.I,
+    )
     return match.group(1) if match else None
+
 
 def job(source, title, url, description='', **extra):
     if 'apply_email' not in extra:
