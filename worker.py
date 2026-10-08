@@ -111,6 +111,29 @@ def is_freelance(lead):
     return str(lead.get("source") or "").lower() in FREELANCE_SOURCES
 
 
+def _application_priority(lead):
+    """Prefer channels the dispatcher can actually submit through.
+
+    Unknown external forms stay visible for review, but cannot crowd out
+    email, HH, Remote-job or configured Freelancehunt API applications.
+    """
+    if lead.get("paid_bid") is True:
+        return 2
+    if lead.get("apply_email") or str(lead.get("apply_url") or "").lower().startswith("mailto:"):
+        return 0
+    source = str(lead.get("source") or "").lower()
+    if source in ("hh", "remote_job_ru"):
+        return 0
+    if source == "freelancehunt" and lead.get("can_api_bid") and os.getenv("FREELANCEHUNT_TOKEN"):
+        return 0
+    return 1
+
+
+def prioritize_actionable_leads(ranked):
+    """Stable order: submit-capable sources first, preserve fit within tiers."""
+    return sorted(ranked, key=_application_priority)
+
+
 def deliver_notifications(notifications):
     deliveries = []
     for notification in notifications:
@@ -150,7 +173,7 @@ def run():
     leads = apply_resume_matching(collect_all())
     if os.getenv("HUNTER_HH_ONLY", "0") == "1":
         leads = [lead for lead in leads if str(lead.get("source") or "").lower() == "hh"]
-    ranked = rank_leads(leads)
+    ranked = prioritize_actionable_leads(rank_leads(leads))
 
     daily_limits = {
         "jobs_submitted": int(os.getenv("DAILY_JOB_LIMIT", "10")),
