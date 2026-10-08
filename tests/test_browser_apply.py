@@ -30,3 +30,27 @@ def test_storage_state_from_json_secret(monkeypatch):
 def test_invalid_storage_state_json_is_ignored(monkeypatch):
     monkeypatch.setenv("HH_STORAGE_STATE_JSON", "{not-json")
     assert browser_apply._storage_state() is None
+
+
+def test_remote_job_requires_name_and_email(monkeypatch):
+    monkeypatch.setenv("AUTO_BROWSER_APPLY", "1")
+    monkeypatch.delenv("REMOTE_JOB_NAME", raising=False)
+    monkeypatch.delenv("REMOTE_JOB_EMAIL", raising=False)
+    monkeypatch.delenv("SMTP_USER", raising=False)
+    result = browser_apply.apply_remote_job(
+        {"source": "remote_job_ru", "url": "https://remote-job.ru/vacancy/show/123/test"},
+        "Здравствуйте!",
+    )
+    assert result == {"status": "NEEDS_HUMAN", "reason": "remote_job_identity_missing"}
+
+
+def test_remote_job_is_routed_to_browser_handler(monkeypatch):
+    calls = []
+    def fake_apply(lead, proposal):
+        calls.append((lead, proposal))
+        return {"status": "NEEDS_CONFIRMATION", "reason": "remote_job_form_not_found"}
+    monkeypatch.setattr(browser_apply, "apply_remote_job", fake_apply)
+    lead = {"source": "remote_job_ru", "url": "https://remote-job.ru/vacancy/show/123/test"}
+    result = browser_apply.dispatch_browser(lead, "Письмо")
+    assert result["reason"] == "remote_job_form_not_found"
+    assert calls == [(lead, "Письмо")]
