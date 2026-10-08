@@ -43,3 +43,15 @@ def test_international_qa_letter_is_truthful_and_in_english():
     text = make_proposal({'category':'qa','language':'en','title':'Junior QA','company':'Acme'})
     assert 'own web applications' in text
     assert 'Russia' in text and 'B1' in text
+
+
+def test_explicit_apply_email_is_extracted_but_generic_contact_is_not():
+    assert job_sources.explicit_application_email(
+        '<a href="mailto:jobs@example.org">Apply via email</a>'
+    ) == 'jobs@example.org'
+    assert job_sources.explicit_application_email(
+        '<a href="mailto:privacy@example.org">Privacy inquiries</a>'
+    ) is None
+    assert job_sources.explicit_application_email(
+        'Send your resume to jobs@example.org for this position'
+    ) == 'jobs@example.org'
