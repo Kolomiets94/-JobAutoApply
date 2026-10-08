@@ -298,7 +298,7 @@ def run():
             detail_lines.append(url)
 
     summary_message = (
-        ("Job Auto Apply — HH verification report\n" if os.getenv("HUNTER_HH_ONLY", "0") == "1" else "Job Auto Apply report\n")
+        ("Job Auto Apply — HH verification report\n" if os.getenv("HUNTER_HH_ONLY", "0") == "1" else "Job Auto Apply report\n") +
         f"Found: {stats['found']}\n"
         f"Ranked: {stats['ranked']}\n"
         f"Jobs submitted this run: {stats['jobs_submitted']}/{stats['hourly_job_limit']}\n"
