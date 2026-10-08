@@ -3,6 +3,8 @@
 import hashlib
 import json
 import os
+import re
+from urllib.parse import urlsplit
 import sqlite3
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -23,8 +25,21 @@ def _db():
     return c
 
 
+def _vacancy_key(url):
+    """Identify HH vacancies by ID, independent of region and tracking parameters."""
+    try:
+        parts = urlsplit(str(url or ""))
+        host = (parts.hostname or "").lower()
+        match = re.fullmatch(r"/vacancy/(\d+)/?", parts.path)
+        if (host == "hh.ru" or host.endswith(".hh.ru")) and match:
+            return "hh:" + match.group(1)
+    except ValueError:
+        pass
+    return str(url or "")
+
+
 def lead_id(lead):
-    raw = lead.get("url") or json.dumps(lead, sort_keys=True, ensure_ascii=False)
+    raw = _vacancy_key(lead.get("url")) or json.dumps(lead, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -59,7 +74,22 @@ def get_state(lid):
 
 
 def was_submitted(lid):
-    return get_state(lid) in ("SUBMITTED", "REPLIED", "WON")
+    sent_states = ("SUBMITTED", "REPLIED", "WON")
+    with _db() as c:
+        row = c.execute("SELECT url,state FROM leads WHERE id=?", (lid,)).fetchone()
+        if not row:
+            return False
+        if row[1] in sent_states:
+            return True
+        key = _vacancy_key(row[0])
+        if not key.startswith("hh:"):
+            return False
+        # Older releases hashed the full URL. Keep those records usable,
+        # including records written through another region or search link.
+        history = c.execute(
+            "SELECT url FROM leads WHERE state IN ('SUBMITTED','REPLIED','WON')"
+        ).fetchall()
+        return any(_vacancy_key(url) == key for (url,) in history)
 
 
 def submitted_today(bucket=None):
