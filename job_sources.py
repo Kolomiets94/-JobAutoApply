@@ -120,7 +120,7 @@ def trudvsem():
 
 
 def public_listing(source, url, link_pattern, language='ru'):
-    """Collect public vacancy links from an HTML listing; application remains separate."""
+    """Collect public vacancy links from HTML, without assuming application support."""
     page = response(url).text
     out, seen = [], set()
     for href, label in re.findall(link_pattern, page, re.I | re.S):
@@ -133,46 +133,91 @@ def public_listing(source, url, link_pattern, language='ru'):
     return out
 
 
+def _vacancy_listing(source, url, language='ru'):
+    """Parse links with stable HTML attributes instead of over-escaped patterns."""
+    from html.parser import HTMLParser
+
+    class Links(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.href = None
+            self.parts = []
+            self.items = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == 'a':
+                self.href = dict(attrs).get('href')
+                self.parts = []
+
+        def handle_data(self, data):
+            if self.href:
+                self.parts.append(data)
+
+        def handle_endtag(self, tag):
+            if tag == 'a' and self.href:
+                self.items.append((self.href, ' '.join(self.parts)))
+                self.href = None
+                self.parts = []
+
+    parser = Links()
+    parser.feed(response(url).text)
+    out, seen = [], set()
+    for href, label in parser.items:
+        absolute = urljoin(url, html.unescape(href))
+        path = __import__('urllib.parse', fromlist=['urlsplit']).urlsplit(absolute).path
+        if not re.search(r'/vacanc(?:y|ies)/|/vacancy/|/vacancies/', path, re.I):
+            continue
+        title = clean(label)
+        if not title or absolute in seen:
+            continue
+        seen.add(absolute)
+        out.append(job(source, title, absolute, title, language=language))
+    return out
+
+
 def geekjob():
-    # Public IT/Digital vacancy catalogue.
-    return public_listing(
-        'geekjob', 'https://geekjob.ru/vacancies',
-        r'href=["\\\']([^"\\\']*(?:/vacancy/|/vacancies/)[^"\\\']*)["\\\'][^>]*>(.*?)</a>'
-    )
+    return _vacancy_listing('geekjob', 'https://geekjob.ru/vacancies')
 
 
 def getmatch():
-    # The URL itself requests Frontend + remote + Junior.
-    return public_listing(
-        'getmatch', 'https://getmatch.ru/vacancies/js_frontend/remote/junior',
-        r'href=["\\\']([^"\\\']*/vacancies/\\d+[^"\\\']*)["\\\'][^>]*>(.*?)</a>'
-    )
+    return _vacancy_listing('getmatch', 'https://getmatch.ru/vacancies/js_frontend/remote/junior')
 
 
 def zarplata():
-    # Public remote Junior listing; the ranker still enforces role and salary rules.
-    return public_listing(
-        'zarplata', 'https://zarplata.ru/vacancies/junior-developer/udalennaya_rabota',
-        r'href=["\\\']([^"\\\']*/vacanc(?:y|ies)/[^"\\\']*)["\\\'][^>]*>(.*?)</a>'
-    )
+    return _vacancy_listing('zarplata', 'https://zarplata.ru/vacancies/junior-developer/udalennaya_rabota')
 
 
 def remote_job_ru():
-    """Public remote-job.ru Junior searches; discovery only."""
     out = []
-    queries = ('junior frontend', 'junior react', 'верстальщик html css', 'junior qa')
-    for query in queries:
-        data = response(
-            'https://remote-job.ru/search',
-            **{'search[query]': query, 'search[searchType]': 'vacancy'}
-        ).text
-        seen = set()
-        # Cards expose vacancy links and headings in server-rendered HTML.
-        for href, label in re.findall(
-            r'href=["\\\']([^"\\\']*(?:/vacancy/|/vacancies/)[^"\\\']*)["\\\'][^>]*>(.*?)</a>',
-            data, re.I | re.S
-        ):
-            absolute = urljoin('https://remote-job.ru', html.unescape(href))
+    seen = set()
+    for query in ('junior frontend', 'junior react', 'верстальщик html css', 'junior qa'):
+        url = 'https://remote-job.ru/search'
+        page = response(url, **{'search[query]': query, 'search[searchType]': 'vacancy'}).text
+        from html.parser import HTMLParser
+        class Links(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.href = None
+                self.parts = []
+                self.items = []
+            def handle_starttag(self, tag, attrs):
+                if tag == 'a':
+                    self.href = dict(attrs).get('href')
+                    self.parts = []
+            def handle_data(self, data):
+                if self.href:
+                    self.parts.append(data)
+            def handle_endtag(self, tag):
+                if tag == 'a' and self.href:
+                    self.items.append((self.href, ' '.join(self.parts)))
+                    self.href = None
+                    self.parts = []
+        parser = Links()
+        parser.feed(page)
+        for href, label in parser.items:
+            absolute = urljoin(url, html.unescape(href))
+            if not re.search(r'/vacanc(?:y|ies)/|/vacancy/', absolute, re.I):
+                continue
             title = clean(label)
             if title and absolute not in seen:
                 seen.add(absolute)
