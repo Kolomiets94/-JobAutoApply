@@ -130,9 +130,23 @@ def deliver_notifications(notifications):
 
 def run():
     if not application_time_allowed():
+        message = ("Job Auto Apply: запуск вне окна откликов. "
+                   "Поиск и отправка откликов выполняются в 06:00, 08:00, "
+                   "10:00, 12:00 и 14:00 по Екатеринбургу.")
+        try:
+            delivery = send_message(message)
+        except Exception as exc:
+            delivery = {"status": "FAILED", "reason": type(exc).__name__}
+        print(f"[telegram] off-hours report: {delivery}", flush=True)
         return {"stats": {"submitted": 0}, "results": [],
+                "summary_delivery": delivery,
                 "reason": "outside_application_hours",
                 "application_window": "Daily batches 06:00,08:00,10:00,12:00,14:00 Asia/Yekaterinburg"}
+    try:
+        started = send_message("Job Auto Apply: поиск вакансий и заказов запущен.")
+    except Exception as exc:
+        started = {"status": "FAILED", "reason": type(exc).__name__}
+    print(f"[telegram] start notification: {started}", flush=True)
     leads = apply_resume_matching(collect_all())
     ranked = rank_leads(leads)
 
@@ -310,6 +324,7 @@ def run():
             "reason": type(exc).__name__,
         }
 
+    print(f"[telegram] summary delivery: {summary_delivery}", flush=True)
     return {
         "stats": stats,
         "results": results,
