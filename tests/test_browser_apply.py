@@ -67,3 +67,12 @@ def test_remote_job_requires_phone_before_browser_launch(monkeypatch):
         "Hello",
     )
     assert result == {"status": "NEEDS_HUMAN", "reason": "remote_job_identity_missing"}
+
+
+def test_hh_university_enrollment_question_answer():
+    question = "Вы сейчас проходите обучение в вузе? Если да, какая форма обучения (очная/заочная; дневная/вечерняя)?"
+    assert browser_apply._known_question_answer(question, "qa") == "Нет, сейчас не учусь в вузе."
+
+
+def test_hh_unrelated_employer_question_remains_unanswered():
+    assert browser_apply._known_question_answer("Какой у вас любимый цвет?", "qa") is None
