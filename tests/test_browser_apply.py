@@ -36,6 +36,7 @@ def test_remote_job_requires_name_and_email(monkeypatch):
     monkeypatch.setenv("AUTO_BROWSER_APPLY", "1")
     monkeypatch.delenv("REMOTE_JOB_NAME", raising=False)
     monkeypatch.delenv("REMOTE_JOB_EMAIL", raising=False)
+    monkeypatch.delenv("REMOTE_JOB_PHONE", raising=False)
     monkeypatch.delenv("SMTP_USER", raising=False)
     result = browser_apply.apply_remote_job(
         {"source": "remote_job_ru", "url": "https://remote-job.ru/vacancy/show/123/test"},
@@ -54,3 +55,15 @@ def test_remote_job_is_routed_to_browser_handler(monkeypatch):
     result = browser_apply.dispatch_browser(lead, "Письмо")
     assert result["reason"] == "remote_job_form_not_found"
     assert calls == [(lead, "Письмо")]
+
+
+def test_remote_job_requires_phone_before_browser_launch(monkeypatch):
+    monkeypatch.setenv("AUTO_BROWSER_APPLY", "1")
+    monkeypatch.setenv("REMOTE_JOB_NAME", "Applicant")
+    monkeypatch.setenv("REMOTE_JOB_EMAIL", "applicant@example.org")
+    monkeypatch.delenv("REMOTE_JOB_PHONE", raising=False)
+    result = browser_apply.apply_remote_job(
+        {"source": "remote_job_ru", "url": "https://remote-job.ru/vacancy/show/123/test"},
+        "Hello",
+    )
+    assert result == {"status": "NEEDS_HUMAN", "reason": "remote_job_identity_missing"}
