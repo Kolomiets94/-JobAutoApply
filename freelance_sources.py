@@ -48,8 +48,10 @@ def collect_freelance():
             r=requests.get(url,headers=UA,timeout=20)
             r.raise_for_status()
             leads.extend(_entries(r.text,source))
-        except Exception:
+        except Exception as exc:
+            print(f"[freelance-feed] {source} failed: {type(exc).__name__}: {exc}", flush=True)
             continue
+    print(f"[freelance-feed] total: {len(leads)} leads", flush=True)
     return leads
 
 def _firecrawl_markdown(url):
