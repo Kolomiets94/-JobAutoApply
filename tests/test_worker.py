@@ -58,3 +58,28 @@ def test_run_keeps_no_email_lead_for_confirmation():
     assert result["results"][0]["reason"] == "no_free_direct_channel"
     set_state.assert_any_call("lead-1", "SHORTLISTED")
     set_state.assert_any_call("lead-1", "NEEDS_CONFIRMATION")
+
+
+def test_prioritize_actionable_leads(monkeypatch):
+    monkeypatch.delenv("FREELANCEHUNT_TOKEN", raising=False)
+    leads = [
+        {"source": "prolinker_firecrawl", "title": "React project"},
+        {"source": "fl_ru", "paid_bid": True, "title": "Paid bid"},
+        {"source": "hh", "title": "Junior QA"},
+        {"source": "remote_job_ru", "title": "Junior frontend"},
+        {"source": "jobicy", "apply_email": "jobs@example.com", "title": "Junior React"},
+        {"source": "prolinker_firecrawl", "title": "Email project", "apply_email": "client@example.com"},
+    ]
+    prioritized = worker.prioritize_actionable_leads(leads)
+    assert [x["title"] for x in prioritized] == [
+        "Junior QA", "Junior frontend", "Junior React", "Email project",
+        "React project", "Paid bid",
+    ]
+
+
+def test_freelancehunt_api_priority_requires_token(monkeypatch):
+    lead = {"source": "freelancehunt", "can_api_bid": True}
+    monkeypatch.delenv("FREELANCEHUNT_TOKEN", raising=False)
+    assert worker._application_priority(lead) == 1
+    monkeypatch.setenv("FREELANCEHUNT_TOKEN", "test")
+    assert worker._application_priority(lead) == 0
