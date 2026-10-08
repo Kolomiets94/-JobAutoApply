@@ -19,7 +19,23 @@ def response(url, **params):
     return r
 
 
+
+def explicit_application_email(description):
+    """Only infer an email from explicit application instructions, never arbitrary contacts."""
+    raw = html.unescape(str(description or ''))
+    pattern = r'href\\s*=\\s*["\\\']mailto:([^?"\\\'\\s<>]+)[^"\\\']*["\\\'][^>]*>(.*?)</a>'
+    for address, label in re.findall(pattern, raw, flags=re.I | re.S):
+        if re.search(r'\\b(apply|application|send (?:your )?(?:cv|resume)|submit (?:your )?(?:cv|resume))\\b|отклик|отправить резюме', clean(label), re.I):
+            if re.fullmatch(r'[^\\s@,;<>]+@[^\\s@,;<>]+\\.[^\\s@,;<>]+', address):
+                return address
+    plain = clean(raw)
+    pattern = r'(?:apply (?:by |via )?(?:email(?:ing)?|to)|send (?:your )?(?:cv|resume) to|отправ(?:ьте|ить) резюме (?:на|по адресу))\\s*:?\\s*([\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,})'
+    match = re.search(pattern, plain, flags=re.I)
+    return match.group(1) if match else None
+
 def job(source, title, url, description='', **extra):
+    if 'apply_email' not in extra:
+        extra['apply_email'] = explicit_application_email(description)
     return {'source': source, 'title': clean(title), 'url': url,
             'description': clean(description), 'remote': True, **extra}
 
