@@ -76,3 +76,8 @@ def test_hh_university_enrollment_question_answer():
 
 def test_hh_unrelated_employer_question_remains_unanswered():
     assert browser_apply._known_question_answer("Какой у вас любимый цвет?", "qa") is None
+
+
+def test_hh_full_time_employment_question_answer():
+    question = "Вы ищете работу с полной или частичной занятостью?"
+    assert browser_apply._known_question_answer(question, "qa") == "Ищу работу с полной занятостью."
