@@ -377,7 +377,7 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
     name = os.getenv("REMOTE_JOB_NAME", "").strip()
     email = (os.getenv("REMOTE_JOB_EMAIL", "") or os.getenv("SMTP_USER", "")).strip()
     phone = os.getenv("REMOTE_JOB_PHONE", "").strip()
-    if not all((name, email)):
+    if not all((name, email, phone)):
         return {"status": "NEEDS_HUMAN", "reason": "remote_job_identity_missing"}
 
     with sync_playwright() as p:
@@ -389,6 +389,15 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
+            # Remote-job.ru hides its public form until the vacancy response
+            # button is clicked. Never click the submit button at this stage.
+            reveal = page.get_by_role("button", name="Откликнуться на вакансию", exact=True).first
+            if not _visible(reveal):
+                reveal = page.get_by_text("Откликнуться на вакансию", exact=True).first
+            if _visible(reveal):
+                reveal.click(timeout=7000)
+                page.wait_for_timeout(600)
+
             # Public response form labels currently shown by Remote-job.ru.
             fields = {
                 "name": page.get_by_label("Имя", exact=True).first,
@@ -396,13 +405,13 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
                 "phone": page.get_by_label("Телефон", exact=True).first,
                 "answer": page.get_by_label("Ответ на вакансию", exact=True).first,
             }
-            if not all(_visible(fields[x]) for x in ("name", "email", "answer")):
+            if not all(_visible(fields[x]) for x in ("email", "phone", "answer")):
                 return {"status": "NEEDS_CONFIRMATION", "reason": "remote_job_form_not_found"}
 
-            fields["name"].fill(name)
+            if _visible(fields["name"]):
+                fields["name"].fill(name)
             fields["email"].fill(email)
-            if phone and _visible(fields["phone"]):
-                fields["phone"].fill(phone)
+            fields["phone"].fill(phone)
             fields["answer"].fill(proposal)
 
             # Newsletter consent is optional and deliberately left unchecked.
