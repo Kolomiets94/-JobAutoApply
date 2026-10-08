@@ -311,9 +311,9 @@ def run():
     if freelance_review:
         lines = ["Фриланс: подходящие заказы (ссылки; отклики НЕ отправлены):"]
         for lead in freelance_review:
-            lines.append(f"- {str(lead.get('title') or 'Заказ')[:100]}\\n{lead['url']}")
+            lines.append(f"- {str(lead.get('title') or 'Заказ')[:100]}\n{lead['url']}")
         try:
-            freelance_review_delivery = send_message("\\n".join(lines))
+            freelance_review_delivery = send_message("\n".join(lines))
         except Exception as exc:
             freelance_review_delivery = {"status": "FAILED", "reason": type(exc).__name__}
 
@@ -368,9 +368,9 @@ def run():
     from collections import Counter
     reasons = Counter(str(item.get("reason") or item.get("status") or "unknown") for item in results if item.get("status") != "SUBMITTED")
     if reasons:
-        summary_message += "\\nReasons: " + "; ".join(f"{reason}: {count}" for reason, count in reasons.most_common(8))
+        summary_message += "\nReasons: " + "; ".join(f"{reason}: {count}" for reason, count in reasons.most_common(8))
     if freelance_review:
-        summary_message += "\\nFreelance shortlist: five links sent separately (not applications)."
+        summary_message += "\nFreelance shortlist: five links sent separately (not applications)."
     if COLLECTION_ERRORS:
         summary_message += "\nSource errors: " + "; ".join(f"{item['source']}: {item['reason']}" for item in COLLECTION_ERRORS)
     if not stats["resume_configured"]:
