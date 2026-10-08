@@ -35,7 +35,9 @@ def _entries(xml, source):
             lead={"source":source,"category":"freelance","title":title,
                   "description":desc[:5000],"url":link,"published":pub}
             if source=="fl_ru":
-                lead["paid_bid"]=True
+                # FL.ru has free-to-apply vacancies and "for everyone" orders.
+                # RSS does not expose that flag: never label every listing paid.
+                lead["bid_access_unknown"]=True
             out.append(lead)
     return out
 
