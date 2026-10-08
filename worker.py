@@ -194,6 +194,8 @@ def run():
         source_counts[source] = source_counts.get(source, 0) + 1
 
     stats = {
+        "freelance_found": sum(is_freelance(lead) for lead in leads),
+        "freelance_ranked": sum(is_freelance(lead) for lead in ranked),
         "source_counts": source_counts,
         "collection_errors": list(COLLECTION_ERRORS),
         "resume_configured": bool(load_resume_text()),
@@ -325,6 +327,8 @@ def run():
     summary_message = (
         ("Job Auto Apply — HH verification report\n" if os.getenv("HUNTER_HH_ONLY", "0") == "1" else "Job Auto Apply report\n") +
         f"Found: {stats['found']}\n"
+        f"Freelance found: {stats['freelance_found']}\n"
+        f"Freelance ranked: {stats['freelance_ranked']}\n"
         f"Ranked: {stats['ranked']}\n"
         f"Jobs submitted this run: {stats['jobs_submitted']}/{stats['hourly_job_limit']}\n"
         f"Freelance submitted this run: {stats['freelance_submitted']}/{stats['hourly_freelance_limit']}\n"
