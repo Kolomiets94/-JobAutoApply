@@ -157,7 +157,7 @@ def run():
     if not application_time_allowed():
         message = ("Job Auto Apply: запуск вне окна откликов. "
                    "Поиск и отправка откликов выполняются в 06:00, 08:00, "
-                   "10:00, 12:00 и 14:00 по Екатеринбургу.")
+                   "10:00, 12:00, 14:00 и 16:00 по Екатеринбургу.")
         try:
             delivery = send_message(message)
         except Exception as exc:
@@ -166,7 +166,7 @@ def run():
         return {"stats": {"submitted": 0}, "results": [],
                 "summary_delivery": delivery,
                 "reason": "outside_application_hours",
-                "application_window": "Daily batches 06:00,08:00,10:00,12:00,14:00 Asia/Yekaterinburg"}
+                "application_window": "Daily batches 06:00,08:00,10:00,12:00,14:00,16:00 Asia/Yekaterinburg"}
     try:
         started = send_message("Job Auto Apply: поиск вакансий и заказов запущен.")
     except Exception as exc:
