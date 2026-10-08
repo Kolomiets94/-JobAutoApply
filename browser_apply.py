@@ -144,6 +144,10 @@ def _select_resume(page, category):
 def _known_question_answer(question, category):
     """Return only answers grounded in the candidate profile; never guess."""
     q = _norm(question)
+    if ("вуз" in q or "университет" in q or "институт" in q) and any(
+        x in q for x in ("учитесь", "учишься", "обучени", "проходите обучение", "студент")
+    ):
+        return "Нет, сейчас не учусь в вузе."
     if any(x in q for x in ("английск", "english", "уровень языка")):
         return "B1 (Intermediate): читаю техническую документацию и могу базово общаться в команде."
     if any(x in q for x in ("город", "где вы жив", "где прожива", "локац")):
