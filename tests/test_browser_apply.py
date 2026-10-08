@@ -81,3 +81,11 @@ def test_hh_unrelated_employer_question_remains_unanswered():
 def test_hh_full_time_employment_question_answer():
     question = "Вы ищете работу с полной или частичной занятостью?"
     assert browser_apply._known_question_answer(question, "qa") == "Ищу работу с полной занятостью."
+
+
+def test_hh_gamedev_motivation_authorized_by_candidate():
+    question = "Почему вы хотите работать в геймдеве? писать тут"
+    answer = browser_apply._known_question_answer(question, "qa")
+    assert answer and "своих веб-приложений" in answer
+    assert browser_apply._known_question_answer("Какой у вас коммерческий опыт в геймдеве?", "qa").startswith("Коммерческого опыта пока нет.")
+    assert browser_apply._known_question_answer("Почему вы хотите работать в геймдеве?", "frontend") is None
