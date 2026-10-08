@@ -22,7 +22,7 @@ RUSSIA_SOURCES = {"hh", "habr_career", "trudvsem", "geekjob", "getmatch", "zarpl
 INTERNATIONAL_SOURCES = {"remoteok", "jobicy", "remotive", "weworkremotely", "arbeitnow", "jooble", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
 FREELANCE_SOURCES = {"fl_ru", "habr_freelance", "freelancehunt", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
 TARGET_TITLE_TERMS = (
-    "frontend", "front-end", "react", "typescript", "javascript",
+    "frontend", "front-end", "front end", "фронтенд", "фронтэнд", "фронт-енд", "react", "typescript", "javascript",
     "верстальщик", "верстка", "вёрстка", "html", "css",
     "qa tester", "qa engineer", "manual qa", "manual tester",
     "тестировщик", "quality assurance",
@@ -102,7 +102,7 @@ def _role_category(lead: Dict[str, Any]) -> str:
     """Route jobs to the user's preferred role/resume order."""
     title = str(lead.get("title") or "").lower()
     # Frontend wins even when HTML/CSS also appears in the title.
-    if any(x in title for x in ("frontend", "front-end", "react", "typescript", "javascript")):
+    if any(x in title for x in ("frontend", "front-end", "front end", "фронтенд", "фронтэнд", "фронт-енд", "react", "typescript", "javascript")):
         return "frontend"
     if any(x in title for x in ("верстальщик", "верстка", "вёрстка", "html", "css")):
         return "layout"

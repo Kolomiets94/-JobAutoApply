@@ -5,11 +5,11 @@ from freelance_sources import collect_freelance
 
 HH_API="https://api.hh.ru/vacancies"
 QUERIES=[
-    ("frontend","React TypeScript junior"),
-    ("frontend","Junior Frontend React"),
-    ("frontend","Frontend JavaScript TypeScript"),
-    ("layout","верстальщик HTML CSS"),
-    ("layout","HTML CSS JavaScript верстальщик"),
+    ("frontend","junior frontend"),
+    ("frontend","junior React"),
+    ("frontend","junior фронтенд"),
+    ("layout","junior верстальщик"),
+    ("layout","junior HTML CSS"),
     ("qa","junior QA tester"),
     ("qa","manual QA junior"),
 ]

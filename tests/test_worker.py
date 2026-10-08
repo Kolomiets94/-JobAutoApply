@@ -72,8 +72,8 @@ def test_prioritize_actionable_leads(monkeypatch):
     ]
     prioritized = worker.prioritize_actionable_leads(leads)
     assert [x["title"] for x in prioritized] == [
-        "Junior QA", "Junior frontend", "Junior React", "Email project",
-        "React project", "Paid bid",
+        "Junior frontend", "Junior React", "React project", "Junior QA",
+        "Email project", "Paid bid",
     ]
 
 
@@ -83,3 +83,17 @@ def test_freelancehunt_api_priority_requires_token(monkeypatch):
     assert worker._application_priority(lead) == 1
     monkeypatch.setenv("FREELANCEHUNT_TOKEN", "test")
     assert worker._application_priority(lead) == 0
+
+
+def test_role_priority_is_preserved_over_channel_priority():
+    leads = [
+        {"source": "hh", "title": "Junior QA Engineer"},
+        {"source": "hh", "title": "Junior HTML CSS верстальщик"},
+        {"source": "jobicy", "title": "Junior Frontend Developer"},
+        {"source": "hh", "title": "Junior React Developer"},
+    ]
+    result = worker.prioritize_actionable_leads(leads)
+    assert [item["title"] for item in result] == [
+        "Junior React Developer", "Junior Frontend Developer",
+        "Junior HTML CSS верстальщик", "Junior QA Engineer",
+    ]

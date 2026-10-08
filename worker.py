@@ -8,7 +8,7 @@ from main import QUERIES, hh_search, remoteok
 from freelance_sources import collect_freelance, collect_peopleperhour, collect_prolinker
 from freelancehunt_adapter import collect_freelancehunt
 from job_matcher import JobMatcher
-from profit_ranker import rank_leads, FREELANCE_SOURCES
+from profit_ranker import rank_leads, FREELANCE_SOURCES, ROLE_PRIORITY, _role_category
 from proposal_writer import make_proposal
 from application_schedule import application_time_allowed
 from application_dispatcher import dispatch
@@ -130,8 +130,10 @@ def _application_priority(lead):
 
 
 def prioritize_actionable_leads(ranked):
-    """Stable order: submit-capable sources first, preserve fit within tiers."""
-    return sorted(ranked, key=_application_priority)
+    """Try Frontend and layout before QA; prefer supported channels within each role."""
+    return sorted(ranked, key=lambda lead: (
+        ROLE_PRIORITY.get(_role_category(lead), 99), _application_priority(lead)
+    ))
 
 
 def deliver_notifications(notifications):
