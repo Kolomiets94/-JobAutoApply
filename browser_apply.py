@@ -389,6 +389,20 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
             if _looks_like_challenge(page):
                 return {"status": "NEEDS_HUMAN", "reason": "security_challenge"}
 
+            # Some Remote-job.ru entries are aggregator links to other sites,
+            # not public forms. Do not treat clicking those links as an application.
+            external_link = page.get_by_role("link", name="Откликнуться на вакансию", exact=True).first
+            if _visible(external_link):
+                href = external_link.get_attribute("href") or ""
+                from urllib.parse import urljoin, urlsplit
+                destination = urljoin(raw_url, href)
+                if urlsplit(destination).hostname not in ("remote-job.ru", "www.remote-job.ru"):
+                    return {
+                        "status": "NEEDS_CONFIRMATION",
+                        "reason": "external_application_form_not_supported",
+                        "apply_url": destination,
+                    }
+
             # Remote-job.ru hides its public form until the vacancy response
             # button is clicked. Never click the submit button at this stage.
             reveal = page.get_by_role("button", name="Откликнуться на вакансию", exact=True).first
