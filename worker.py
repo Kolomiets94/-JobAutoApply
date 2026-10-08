@@ -211,6 +211,7 @@ def run():
         "needs_confirmation": 0,
         "skipped": 0,
         "failed": 0,
+        "needs_human": 0,
         "duplicate_skipped": 0,
         "daily_limit_skipped": 0,
         "hourly_limit_skipped": 0,
@@ -276,6 +277,8 @@ def run():
                 key = state.lower()
                 if key in stats:
                     stats[key] += 1
+                elif state == "NEEDS_HUMAN":
+                    stats["needs_human"] += 1
                 else:
                     stats["skipped"] += 1
 
@@ -301,6 +304,18 @@ def run():
                 "status": "FAILED",
                 "reason": type(exc).__name__,
             })
+
+    # Report promising freelance projects even when bidding is not supported.
+    freelance_review = [lead for lead in ranked if is_freelance(lead) and lead.get("url")][:5]
+    freelance_review_delivery = None
+    if freelance_review:
+        lines = ["Фриланс: подходящие заказы (ссылки; отклики НЕ отправлены):"]
+        for lead in freelance_review:
+            lines.append(f"- {str(lead.get('title') or 'Заказ')[:100]}\\n{lead['url']}")
+        try:
+            freelance_review_delivery = send_message("\\n".join(lines))
+        except Exception as exc:
+            freelance_review_delivery = {"status": "FAILED", "reason": type(exc).__name__}
 
     deliveries = deliver_notifications(notifications)
     stats["notifications"] = len(notifications)
@@ -341,6 +356,7 @@ def run():
         f"Submitted this run total: {stats['submitted']}\n"
         f"Skipped: {stats['skipped'] + stats['duplicate_skipped'] + stats['daily_limit_skipped'] + stats['hourly_limit_skipped']}\n"
         f"Failed: {stats['failed']}\n"
+        f"Needs human: {stats['needs_human']}\n"
         f"Shortlisted (not sent): {stats['shortlisted']}\n"
         f"Needs confirmation: {stats['needs_confirmation']}\n"
         f"Telegram vacancy alerts sent: {stats['notifications_sent']}\n"
@@ -349,6 +365,12 @@ def run():
         "Results:\n" + ("\n".join(detail_lines) if detail_lines else "No ranked results")
     )
     summary_message += "\n\nSources: " + ", ".join(f"{name}: {count}" for name, count in source_counts.items())
+    from collections import Counter
+    reasons = Counter(str(item.get("reason") or item.get("status") or "unknown") for item in results if item.get("status") != "SUBMITTED")
+    if reasons:
+        summary_message += "\\nReasons: " + "; ".join(f"{reason}: {count}" for reason, count in reasons.most_common(8))
+    if freelance_review:
+        summary_message += "\\nFreelance shortlist: five links sent separately (not applications)."
     if COLLECTION_ERRORS:
         summary_message += "\nSource errors: " + "; ".join(f"{item['source']}: {item['reason']}" for item in COLLECTION_ERRORS)
     if not stats["resume_configured"]:
@@ -367,6 +389,7 @@ def run():
         "results": results,
         "notifications": notifications,
         "notification_deliveries": deliveries,
+        "freelance_review_delivery": freelance_review_delivery,
         "summary_delivery": summary_delivery,
     }
 
