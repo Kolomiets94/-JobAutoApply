@@ -2,7 +2,7 @@ name: Hourly Job Hunter
 
 on:
   schedule:
-    - cron: "0 1,3,5,7,9 * * *" # 06:00,08:00,10:00,12:00,14:00 Yekaterinburg
+    - cron: "0 1,3,5,7,9,11 * * *" # 06:00,08:00,10:00,12:00,14:00,16:00 Yekaterinburg
   workflow_dispatch:
 
 concurrency:
