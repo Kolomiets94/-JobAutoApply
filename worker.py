@@ -148,6 +148,8 @@ def run():
         started = {"status": "FAILED", "reason": type(exc).__name__}
     print(f"[telegram] start notification: {started}", flush=True)
     leads = apply_resume_matching(collect_all())
+    if os.getenv("HUNTER_HH_ONLY", "0") == "1":
+        leads = [lead for lead in leads if str(lead.get("source") or "").lower() == "hh"]
     ranked = rank_leads(leads)
 
     daily_limits = {
@@ -296,7 +298,7 @@ def run():
             detail_lines.append(url)
 
     summary_message = (
-        "Job Auto Apply report\n"
+        ("Job Auto Apply — HH verification report\n" if os.getenv("HUNTER_HH_ONLY", "0") == "1" else "Job Auto Apply report\n")
         f"Found: {stats['found']}\n"
         f"Ranked: {stats['ranked']}\n"
         f"Jobs submitted this run: {stats['jobs_submitted']}/{stats['hourly_job_limit']}\n"
