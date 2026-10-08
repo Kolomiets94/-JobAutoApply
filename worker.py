@@ -60,9 +60,11 @@ def collect_all():
     leads = []
     for tag, query in QUERIES:
         try:
-            leads += hh_search(tag, query)
+            matches = hh_search(tag, query)
+            print(f"[collector] hh {tag} / {query}: {len(matches)} leads", flush=True)
+            leads += matches
         except Exception as exc:
-            record_collection_error("hh", exc)
+            record_collection_error(f"hh:{tag}:{query}", exc)
 
     for source, collector in (
         ("remoteok", remoteok),
@@ -173,8 +175,6 @@ def run():
         started = {"status": "FAILED", "reason": type(exc).__name__}
     print(f"[telegram] start notification: {started}", flush=True)
     leads = apply_resume_matching(collect_all())
-    if os.getenv("HUNTER_HH_ONLY", "0") == "1":
-        leads = [lead for lead in leads if str(lead.get("source") or "").lower() == "hh"]
     ranked = prioritize_actionable_leads(rank_leads(leads))
 
     daily_limits = {
@@ -196,6 +196,9 @@ def run():
     stats = {
         "freelance_found": sum(is_freelance(lead) for lead in leads),
         "freelance_ranked": sum(is_freelance(lead) for lead in ranked),
+        "frontend_found": sum(_role_category(lead) == "frontend" and not is_freelance(lead) for lead in leads),
+        "layout_found": sum(_role_category(lead) == "layout" and not is_freelance(lead) for lead in leads),
+        "qa_found": sum(_role_category(lead) == "qa" and not is_freelance(lead) for lead in leads),
         "source_counts": source_counts,
         "collection_errors": list(COLLECTION_ERRORS),
         "resume_configured": bool(load_resume_text()),
@@ -325,8 +328,11 @@ def run():
             detail_lines.append(url)
 
     summary_message = (
-        ("Job Auto Apply — HH verification report\n" if os.getenv("HUNTER_HH_ONLY", "0") == "1" else "Job Auto Apply report\n") +
+        "Job Auto Apply — all sources report\n" +
         f"Found: {stats['found']}\n"
+        f"Frontend found: {stats['frontend_found']}\n"
+        f"Layout found: {stats['layout_found']}\n"
+        f"QA found: {stats['qa_found']}\n"
         f"Freelance found: {stats['freelance_found']}\n"
         f"Freelance ranked: {stats['freelance_ranked']}\n"
         f"Ranked: {stats['ranked']}\n"
