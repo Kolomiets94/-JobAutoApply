@@ -29,3 +29,22 @@ def test_missing_token_is_explicit(monkeypatch):
     monkeypatch.setenv('AUTO_FREELANCE_APPLY','1')
     monkeypatch.delenv('FREELANCEHUNT_TOKEN',raising=False)
     assert dispatch(lead(),'Hello')['reason'] == 'freelancehunt_token_missing'
+
+
+def test_fl_ru_rss_does_not_mark_every_order_paid():
+    from freelance_sources import _entries
+    xml = """<rss><channel><item><title>Сверстать лендинг на React</title>
+    <description>Нужен React</description>
+    <link>https://www.fl.ru/projects/123/test/</link></item></channel></rss>"""
+    [project] = _entries(xml, "fl_ru")
+    assert project["bid_access_unknown"] is True
+    assert project.get("paid_bid") is not True
+
+
+def test_fl_ru_unknown_bid_access_is_not_misreported_as_paid(monkeypatch):
+    monkeypatch.setenv("AUTO_BROWSER_APPLY", "0")
+    from application_dispatcher import dispatch
+    project = {"source": "fl_ru", "title": "React landing", "url": "https://www.fl.ru/projects/123/test/", "bid_access_unknown": True}
+    result = dispatch(project, "I can build this React landing page.")
+    assert result["status"] == "NEEDS_CONFIRMATION"
+    assert result["reason"] == "no_free_direct_channel"
