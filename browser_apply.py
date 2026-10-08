@@ -172,6 +172,21 @@ def _known_question_answer(question, category):
     return None
 
 
+def _employer_question_text(field):
+    """Read the surrounding question rather than just the input placeholder."""
+    try:
+        for level in (2, 3, 4, 5):
+            parent = field.locator(f"xpath=ancestor::*[self::div or self::fieldset][{level}]")
+            if not parent.count():
+                continue
+            content = _norm(parent.inner_text(timeout=1500))
+            if content and content.lower() not in ("писать тут", "ответ", "ваш ответ") and len(content) > 12:
+                return content[:240]
+    except Exception:
+        pass
+    return "question_text_unavailable"
+
+
 def _answer_known_questions(page, category):
     """Answer free-text employer questions only when a truthful canned answer is known.
 
@@ -183,11 +198,7 @@ def _answer_known_questions(page, category):
         field = fields.nth(i)
         if not _visible(field):
             continue
-        try:
-            container = field.locator("xpath=ancestor::*[self::div or self::fieldset][1]")
-            question = container.inner_text(timeout=1000) if container.count() else ""
-        except Exception:
-            question = ""
+        question = _employer_question_text(field)
         answer = _known_question_answer(question, category)
         if not answer:
             unanswered.append(_norm(question)[:180] or "unknown_question")
