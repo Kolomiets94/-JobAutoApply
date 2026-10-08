@@ -180,7 +180,7 @@ def _employer_question_text(field):
             if not parent.count():
                 continue
             content = _norm(parent.inner_text(timeout=1500))
-            if content and content.lower() not in ("писать тут", "ответ", "ваш ответ") and len(content) > 12:
+            if 12 < len(content) <= 350 and content.lower() not in ("писать тут", "ответ", "ваш ответ"):
                 return content[:240]
     except Exception:
         pass
