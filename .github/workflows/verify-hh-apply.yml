@@ -11,54 +11,15 @@ on:
       - "worker.py"
   workflow_dispatch:
 
-concurrency:
-  group: job-hunter-applications
-  cancel-in-progress: false
-
 jobs:
-  hunt:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      RESUME_TEXT: ${{ secrets.RESUME_TEXT }}
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      MATCH_NOTIFY_MIN_SCORE: "70"
-      AUTO_BROWSER_APPLY: "1"
-      HUNTER_HH_ONLY: "1"
-      HH_STORAGE_STATE_JSON: ${{ secrets.HH_STORAGE_STATE_JSON }}
-      DAILY_APPLICATION_LIMIT: "10"
-      HOURLY_JOB_LIMIT: "2"
-      HOURLY_FREELANCE_LIMIT: "0"
-      HUNTER_DB: hunter.db
-      PYTHONPATH: .
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
-      - name: Restore hunter history
-        uses: actions/cache/restore@v4
-        with:
-          path: hunter.db
-          key: hunter-db-${{ github.run_id }}
-          restore-keys: |
-            hunter-db-
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Install Chromium
-        run: python -m playwright install --with-deps chromium
-
-      - name: Run hunter
-        run: python worker.py
-
-      - name: Save hunter history
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: hunter.db
-          key: hunter-db-${{ github.run_id }}
+      - name: Verify Python syntax without sending applications
+        run: |
+          python -m py_compile browser_apply.py proposal_writer.py profit_ranker.py hh_web_search.py worker.py
