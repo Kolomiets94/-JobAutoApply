@@ -242,6 +242,12 @@ def run():
             })
             stats["skipped"] += 1
             continue
+        # Discovery-only freelance boards have no supported direct submission.
+        # Keep them in the separate Telegram shortlist, not in application
+        # attempts or NEEDS_CONFIRMATION counts.
+        if freelance and _application_priority(lead) != 0:
+            stats["discovery_only_skipped"] = stats.get("discovery_only_skipped", 0) + 1
+            continue
         bucket = "freelance_submitted" if freelance else "jobs_submitted"
         bucket_limit = freelance_limit if freelance else job_limit
 
