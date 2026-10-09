@@ -134,7 +134,9 @@ def _application_priority(lead):
 def prioritize_actionable_leads(ranked):
     """Try Frontend and layout before QA; prefer supported channels within each role."""
     return sorted(ranked, key=lambda lead: (
-        ROLE_PRIORITY.get(_role_category(lead), 99), _application_priority(lead)
+        _application_priority(lead),
+        0 if is_freelance(lead) else ROLE_PRIORITY.get(_role_category(lead), 99),
+        -lead.get("profit_score", 0),
     ))
 
 
