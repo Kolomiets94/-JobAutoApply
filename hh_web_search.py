@@ -11,6 +11,8 @@ EXCLUDED = re.compile(r"full[ -]?stack|фул[ -]?ст[еэ]к|middle|senior|lea
 def title_matches_category(title, category):
     if not JUNIOR.search(title) or EXCLUDED.search(title):
         return False
+    if category != "qa" and re.search(r"\bqa\b|tester|тестиров|quality assurance|автотест", title, re.I):
+        return False
     terms = {
         "frontend": r"front[ -]?end|фронт[ -]?енд|фронт[ -]?энд|react|javascript|typescript",
         "layout": r"верст|вёрст|html|css",
