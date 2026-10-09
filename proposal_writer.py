@@ -45,7 +45,8 @@ def make_proposal(lead):
         if category == "qa":
             return (f"Hello! I'm interested in the {title} role. I manually tested forms, "
                     "validation and API interactions in my own web applications. "
-                    "My React and TypeScript background helps me investigate frontend bugs.")
+                    "My React and TypeScript background helps me investigate frontend bugs. "
+                    "I'm based in Russia and my English level is B1.")
         return (f"Hello! I'm applying for the {title} role. My React and TypeScript projects "
                 "include API integration, authentication, CRUD, responsive layouts and form validation. "
                 "I'm available for remote work and can share my GitHub projects.")
