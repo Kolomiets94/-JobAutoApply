@@ -82,6 +82,7 @@ def test_freelancehunt_api_priority_requires_token(monkeypatch):
     monkeypatch.delenv("FREELANCEHUNT_TOKEN", raising=False)
     assert worker._application_priority(lead) == 1
     monkeypatch.setenv("FREELANCEHUNT_TOKEN", "test")
+    monkeypatch.setenv("AUTO_FREELANCE_APPLY", "1")
     assert worker._application_priority(lead) == 0
 
 
