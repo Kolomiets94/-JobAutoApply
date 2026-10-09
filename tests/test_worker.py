@@ -72,7 +72,7 @@ def test_prioritize_actionable_leads(monkeypatch):
     ]
     prioritized = worker.prioritize_actionable_leads(leads)
     assert [x["title"] for x in prioritized] == [
-        "Junior frontend", "Junior React", "React project", "Junior QA",
+        "Junior React", "Junior frontend", "Junior QA", "React project",
         "Email project", "Paid bid",
     ]
 
