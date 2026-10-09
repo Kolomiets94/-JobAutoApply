@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "hh_diagnostics.py"
+      - "hh_web_search.py"
       - ".github/workflows/hh-diagnostics.yml"
 
 permissions:
