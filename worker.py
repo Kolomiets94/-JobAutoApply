@@ -138,12 +138,19 @@ def _application_priority(lead):
 
 
 def prioritize_actionable_leads(ranked):
-    """Try Frontend and layout before QA; prefer supported channels within each role."""
-    return sorted(ranked, key=lambda lead: (
-        _application_priority(lead),
-        0 if is_freelance(lead) else ROLE_PRIORITY.get(_role_category(lead), 99),
-        -lead.get("profit_score", 0),
-    ))
+    """Try React first, then other frontend, layout, and QA leads."""
+    def priority(lead):
+        role = _role_category(lead)
+        title = str(lead.get("title") or "").lower()
+        react_first = 0 if role == "frontend" and "react" in title else 1
+        return (
+            ROLE_PRIORITY.get(role, 99),
+            react_first,
+            _application_priority(lead),
+            -lead.get("profit_score", 0),
+        )
+
+    return sorted(ranked, key=priority)
 
 
 def deliver_notifications(notifications):
