@@ -64,7 +64,12 @@ def test_submitted_result_increments_daily_total(monkeypatch):
 
 def test_full_jobs_bucket_does_not_block_freelance(monkeypatch):
     job = _lead()
-    freelance = {**_lead("https://freelance.habr.com/tasks/1"), "source": "habr_freelance"}
+    freelance = {**_lead("https://freelance.habr.com/tasks/1"), "source": "habr_freelance",
+                 "apply_email": "client@example.com"}
+    monkeypatch.setenv("AUTO_SEND_EMAIL", "1")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_USER", "alex@example.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "test")
     with patch.object(worker, "collect_all", return_value=[job, freelance]), \
          patch.object(worker, "rank_leads", return_value=[job, freelance]), \
          patch.object(worker, "enqueue", side_effect=["job-1", "freelance-1"]), \
