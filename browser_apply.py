@@ -459,6 +459,30 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
             )
             if any(x in body for x in success_phrases):
                 return {"status": "SUBMITTED", "reason": "browser_remote_job_sent"}
+            # Diagnose the public form without claiming a successful submission.
+            # Do not retry an ambiguous send: it could create a duplicate application.
+            errors = page.locator(
+                '[role="alert"], .invalid-feedback, .field-error, '
+                '.form-error, .error-message, input:invalid, textarea:invalid'
+            )
+            validation_errors = []
+            for i in range(min(errors.count(), 8)):
+                node = errors.nth(i)
+                if _visible(node):
+                    try:
+                        message = _norm(node.inner_text(timeout=1000))
+                        if not message:
+                            message = _norm(node.get_attribute("validationMessage") or "")
+                        if message:
+                            validation_errors.append(message[:180])
+                    except Exception:
+                        pass
+            if validation_errors:
+                return {
+                    "status": "NEEDS_CONFIRMATION",
+                    "reason": "remote_job_form_validation_error",
+                    "detail": "; ".join(validation_errors)[:350],
+                }
             # Never infer success from a click alone.
             return {"status": "NEEDS_CONFIRMATION", "reason": "submission_not_confirmed"}
         except PlaywrightTimeoutError:
