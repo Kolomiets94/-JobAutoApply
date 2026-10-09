@@ -51,12 +51,15 @@ def make_proposal(lead):
                 "I'm available for remote work and can share my GitHub projects.")
 
     if category == "layout":
-        return (f"{greeting} Откликаюсь на вакансию «{title}». "\n                            "Верстаю адаптивные страницы на HTML, CSS/SCSS и JavaScript, "
+        return (f"{greeting} Откликаюсь на вакансию «{title}». "
+                "Верстаю адаптивные страницы на HTML, CSS/SCSS и JavaScript, "
                 "работаю с Figma и Git. Готов показать примеры проектов и выполнить тестовое задание.")
     if category == "qa":
-        return (f"{greeting} Откликаюсь на вакансию «{title}». "\n                                "В своих веб-проектах вручную проверял формы, валидацию, API и обработку ошибок. "
+        return (f"{greeting} Откликаюсь на вакансию «{title}». "
+                    "В своих веб-проектах вручную проверял формы, валидацию, API и обработку ошибок. "
                 "Знаю React и TypeScript, поэтому понимаю поведение клиентской части. "
                 "Готов выполнить тестовое задание на позицию Junior.")
-    return (f"{greeting} Откликаюсь на вакансию «{title}». "\n                            "В проектах на React и TypeScript реализовал авторизацию, CRUD, "
+    return (f"{greeting} Откликаюсь на вакансию «{title}». "
+                "В проектах на React и TypeScript реализовал авторизацию, CRUD, "
             "интеграцию с REST API, адаптивную вёрстку и валидацию форм. "
             "Готов показать код на GitHub и выполнить тестовое задание." + stack_extra + layout_extra)
