@@ -1,33 +1,24 @@
 from proposal_writer import make_proposal
 
 
-def test_personalizes_company_title_and_stack():
-    lead = {
-        "company": "Acme",
-        "title": "Junior React Developer",
-        "description": "React TypeScript REST API Redux",
-    }
+def test_react_letter_uses_verified_project_link_and_four_sentences():
+    lead = {"title": "Junior React Developer", "description": "React TypeScript REST API Redux"}
     text = make_proposal(lead)
-    assert "Acme" in text
-    assert "Junior React Developer" in text
-    assert "React" in text
-    assert "TypeScript" in text
-    assert "REST API" in text
+    assert "VKMarusya" in text
+    assert "https://github.com/Kolomiets94/VKMarusya" in text
     assert "Redux Toolkit" in text
+    assert "коммерческ" not in text.lower()
+    assert text.count(". ") >= 3
 
 
-def test_uses_relevant_experience_from_description():
-    lead = {
-        "title": "Frontend Developer",
-        "description": "Нужна адаптивная верстка по Figma и интеграция API",
-    }
-    text = make_proposal(lead)
-    assert "Figma" in text
+def test_layout_letter_links_to_project_without_claiming_figma():
+    text = make_proposal({"title": "Junior верстальщик", "description": "адаптивная верстка по Figma"})
+    assert "https://github.com/Kolomiets94/travel-blog" in text
     assert "адаптив" in text.lower()
-    assert "API" in text
+    assert "Figma" not in text
 
 
-def test_does_not_invent_company():
-    lead = {"title": "Frontend Developer", "description": "React"}
-    text = make_proposal(lead)
-    assert text.startswith("Здравствуйте!")
+def test_unsupported_vacancy_skill_not_added_to_letter():
+    text = make_proposal({"title": "Junior Frontend", "description": "Требуется SQL"})
+    assert "SQL" not in text
+    assert "https://github.com/Kolomiets94/travel-blog" in text
