@@ -32,6 +32,14 @@ NON_TARGET_TITLE_TERMS = (
     "data scientist", "data engineer", "product manager", "project manager",
 )
 
+# Frameworks and specialties outside the candidate's demonstrated frontend stack.
+# Check the project title rather than incidental words in its description.
+FREELANCE_TITLE_EXCLUDE = (
+    "angular", "mean stack", "mongodb", "wordpress", "woocommerce",
+    "arcgis", "jquery", "drupal", "shopify", "webflow",
+    "vue", "nuxt", "svelte", "php", "laravel", "django",
+)
+
 FREELANCE_TOO_COMPLEX = (
     "architect", "архитектор", "devops", "kubernetes", "terraform", "microservices",
     "микросервис", "highload", "high-load", "machine learning", "data engineer",
@@ -135,6 +143,9 @@ def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
             return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "not explicitly Junior"}
         if re.search(r"junior\s*\+|junior\s+plus|джун(?:иор)?\s*\+", title):
             return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "Junior+ excluded"}
+
+    if source in FREELANCE_SOURCES and any(x in title for x in FREELANCE_TITLE_EXCLUDE):
+        return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "freelance title requires unsupported technology"}
 
     if source in FREELANCE_SOURCES and any(x in text for x in FREELANCE_TOO_COMPLEX):
         return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "freelance project too complex/out of scope"}
