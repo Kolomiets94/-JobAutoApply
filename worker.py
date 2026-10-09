@@ -318,6 +318,20 @@ def run():
                 "reason": type(exc).__name__,
             })
 
+    # Report actual submission capability separately from discovered listings.
+    freelance_actionable = [
+        lead for lead in ranked if is_freelance(lead)
+        and _application_priority(lead) == 0
+    ]
+    stats["freelance_actionable"] = len(freelance_actionable)
+    stats["freelance_discovery_only"] = stats["freelance_ranked"] - len(freelance_actionable)
+    stats["freelancehunt_token_configured"] = bool(os.getenv("FREELANCEHUNT_TOKEN"))
+    stats["smtp_configured"] = all(os.getenv(key) for key in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"))
+    stats["remote_job_identity_configured"] = (
+        bool(os.getenv("REMOTE_JOB_NAME")) and bool(os.getenv("REMOTE_JOB_PHONE"))
+        and bool(os.getenv("REMOTE_JOB_EMAIL") or os.getenv("SMTP_USER"))
+    )
+
     # Report promising freelance projects even when bidding is not supported.
     # Prefer marketplaces where a direct application path may exist, rather
     # than filling the whole shortlist with ProLinker discovery-only cards.
@@ -382,6 +396,11 @@ def run():
         f"QA found: {stats['qa_found']}\n"
         f"Freelance found: {stats['freelance_found']}\n"
         f"Freelance ranked: {stats['freelance_ranked']}\n"
+        f"Freelance actionable channels: {stats['freelance_actionable']}\n"
+        f"Freelance discovery-only: {stats['freelance_discovery_only']}\n"
+        f"Freelancehunt API configured: {stats['freelancehunt_token_configured']}\n"
+        f"SMTP configured: {stats['smtp_configured']}\n"
+        f"Remote-job identity configured: {stats['remote_job_identity_configured']}\n"
         f"Freelance configured limit: {freelance_limit} (HOURLY_FREELANCE_LIMIT)\n"
         f"QA auto-apply: {os.getenv('AUTO_APPLY_QA', '0')}\n"
         f"Ranked: {stats['ranked']}\n"
