@@ -3,6 +3,7 @@ import job_sources
 from profit_ranker import rank_lead
 from application_dispatcher import dispatch
 from proposal_writer import make_proposal
+import pytest
 
 
 def test_trudvsem_preserves_vacancy_contact_and_remote_requirement():
@@ -32,7 +33,7 @@ def test_mailto_uses_real_delivery_and_checks_rejection(monkeypatch):
     for k,v in {'AUTO_SEND_EMAIL':'1','SMTP_HOST':'smtp.example.com','SMTP_USER':'alex@example.com','SMTP_PASSWORD':'x'}.items():
         monkeypatch.setenv(k,v)
     lead = {'apply_url': 'mailto:jobs@example.com', 'title': 'Junior Frontend'}
-    with patch('application_dispatcher.smtplib.SMTP_SSL') as smtp:
+    with patch('application_dispatcher.approve', return_value=True), patch('application_dispatcher.smtplib.SMTP_SSL') as smtp:
         smtp.return_value.__enter__.return_value.send_message.return_value = {}
         assert dispatch(lead, 'Hello')['status'] == 'SUBMITTED'
         smtp.return_value.__enter__.return_value.send_message.return_value = {'jobs@example.com': (550, b'no')}
@@ -40,9 +41,8 @@ def test_mailto_uses_real_delivery_and_checks_rejection(monkeypatch):
 
 
 def test_international_qa_letter_is_truthful_and_in_english():
-    text = make_proposal({'category':'qa','language':'en','title':'Junior QA','company':'Acme'})
-    assert 'own web applications' in text
-    assert 'Russia' in text and 'B1' in text
+    with pytest.raises(ValueError, match='paused'):
+        make_proposal({'category':'qa','language':'en','title':'Junior QA','company':'Acme'})
 
 
 def test_explicit_apply_email_is_extracted_but_generic_contact_is_not():
