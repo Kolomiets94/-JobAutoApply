@@ -1,6 +1,13 @@
 from unittest.mock import Mock, patch
 import freelancehunt_adapter as fh
 from application_dispatcher import dispatch
+import application_dispatcher as dispatcher
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def approved(monkeypatch):
+    monkeypatch.setattr(dispatcher, 'approve', lambda lead, proposal: True)
 
 
 def lead():
@@ -48,3 +55,9 @@ def test_fl_ru_unknown_bid_access_is_not_misreported_as_paid(monkeypatch):
     result = dispatch(project, "I can build this React landing page.")
     assert result["status"] == "NEEDS_CONFIRMATION"
     assert result["reason"] == "no_free_direct_channel"
+
+
+def test_no_submission_without_telegram_approval(monkeypatch):
+    monkeypatch.setattr(dispatcher, 'approve', lambda lead, proposal: False)
+    result = dispatch(lead(), 'Draft')
+    assert result == {'status': 'NEEDS_CONFIRMATION', 'reason': 'telegram_draft_not_approved'}
