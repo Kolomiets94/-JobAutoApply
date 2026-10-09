@@ -15,6 +15,10 @@ def make_proposal(lead):
     freelance = str(lead.get("source") or "").lower() in FREELANCE_SOURCES
     english = lead.get("language") == "en"
     context = f"{title} {description}".lower()
+    company = _clean(lead.get("company") or lead.get("employer") or lead.get("company_name"))
+    greeting = f"Здравствуйте, команда {company}!" if company else "Здравствуйте!"
+    stack_extra = " Также работал с Redux Toolkit." if "redux" in context else ""
+    layout_extra = " Использую Figma для работы с макетами." if "figma" in context else ""
 
     if freelance:
         if english:
@@ -47,15 +51,15 @@ def make_proposal(lead):
                 "I'm available for remote work and can share my GitHub projects.")
 
     if category == "layout":
-        return (f"Здравствуйте! Откликаюсь на вакансию «{title}». "
+        return (f"{greeting} Откликаюсь на вакансию «{title}». 
                 "Верстаю адаптивные страницы на HTML, CSS/SCSS и JavaScript, "
                 "работаю с Figma и Git. Готов показать примеры проектов и выполнить тестовое задание.")
     if category == "qa":
-        return (f"Здравствуйте! Откликаюсь на вакансию «{title}». "
+        return (f"{greeting} Откликаюсь на вакансию «{title}». 
                 "В своих веб-проектах вручную проверял формы, валидацию, API и обработку ошибок. "
                 "Знаю React и TypeScript, поэтому понимаю поведение клиентской части. "
                 "Готов выполнить тестовое задание на позицию Junior.")
-    return (f"Здравствуйте! Откликаюсь на вакансию «{title}». "
+    return (f"{greeting} Откликаюсь на вакансию «{title}». 
             "В проектах на React и TypeScript реализовал авторизацию, CRUD, "
             "интеграцию с REST API, адаптивную вёрстку и валидацию форм. "
-            "Готов показать код на GitHub и выполнить тестовое задание.")
+            "Готов показать код на GitHub и выполнить тестовое задание." + stack_extra + layout_extra)
