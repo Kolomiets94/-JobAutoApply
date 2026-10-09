@@ -461,9 +461,32 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
                 return {"status": "SUBMITTED", "reason": "browser_remote_job_sent"}
             # Diagnose the public form without claiming a successful submission.
             # Do not retry an ambiguous send: it could create a duplicate application.
+            # Inspect actual HTML constraint failures first. Do not log field values,
+            # candidate contact details, or generic site notices as form errors.
+            invalid_fields = page.locator('input:invalid, textarea:invalid, select:invalid')
+            field_issues = []
+            for i in range(min(invalid_fields.count(), 10)):
+                node = invalid_fields.nth(i)
+                if not _visible(node):
+                    continue
+                info = node.evaluate("""el => ({
+                    field: el.getAttribute('name') || el.getAttribute('type') || el.tagName,
+                    reason: el.validity.valueMissing ? 'required' :
+                            el.validity.typeMismatch ? 'invalid_format' :
+                            el.validity.patternMismatch ? 'pattern_mismatch' :
+                            el.validity.tooShort ? 'too_short' :
+                            el.validity.tooLong ? 'too_long' : 'invalid'
+                })""")
+                field_issues.append(str(info["field"])[:50] + ": " + info["reason"])
+            if field_issues:
+                return {
+                    "status": "NEEDS_CONFIRMATION",
+                    "reason": "remote_job_form_validation_error",
+                    "detail": "; ".join(field_issues)[:350],
+                }
             errors = page.locator(
-                '[role="alert"], .invalid-feedback, .field-error, '
-                '.form-error, .error-message, input:invalid, textarea:invalid'
+                '.invalid-feedback, .field-error, .form-error, '
+                '.error-message, [aria-invalid="true"]'
             )
             validation_errors = []
             for i in range(min(errors.count(), 8)):
