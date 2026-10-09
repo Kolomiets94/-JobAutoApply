@@ -122,11 +122,17 @@ def _application_priority(lead):
     if lead.get("paid_bid") is True:
         return 2
     if lead.get("apply_email") or str(lead.get("apply_url") or "").lower().startswith("mailto:"):
-        return 0
+        return 0 if os.getenv("AUTO_SEND_EMAIL") == "1" and all(
+            os.getenv(key) for key in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD")
+        ) else 1
     source = str(lead.get("source") or "").lower()
-    if source in ("hh", "remote_job_ru"):
-        return 0
-    if source == "freelancehunt" and lead.get("can_api_bid") and os.getenv("FREELANCEHUNT_TOKEN"):
+    if source == "hh":
+        return 0 if os.getenv("AUTO_BROWSER_APPLY") == "1" and os.getenv("HH_STORAGE_STATE_JSON") else 1
+    if source == "remote_job_ru":
+        return 0 if os.getenv("AUTO_BROWSER_APPLY") == "1" and all(
+            os.getenv(key) for key in ("REMOTE_JOB_NAME", "REMOTE_JOB_PHONE")
+        ) and (os.getenv("REMOTE_JOB_EMAIL") or os.getenv("SMTP_USER")) else 1
+    if source == "freelancehunt" and lead.get("can_api_bid") and os.getenv("FREELANCEHUNT_TOKEN") and os.getenv("AUTO_FREELANCE_APPLY") == "1":
         return 0
     return 1
 
