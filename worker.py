@@ -402,7 +402,9 @@ def run():
 
     summary_message = (
         "Job Auto Apply — all sources report\n" +
-        f"Found: {stats['found']}\n"
+        f"Run: {os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/{os.getenv('GITHUB_REPOSITORY', 'unknown')}/actions/runs/{os.getenv('GITHUB_RUN_ID', 'unknown')}\\n"
+        f"Workflow: {os.getenv('GITHUB_WORKFLOW', 'unknown')} | Ref: {os.getenv('GITHUB_REF_NAME', 'unknown')} | SHA: {os.getenv('GITHUB_SHA', 'unknown')[:12]}\\n"
+        f"Found: {stats['found']}\\n"
         f"Frontend found: {stats['frontend_found']}\n"
         f"Layout found: {stats['layout_found']}\n"
         f"QA found: {stats['qa_found']}\n"
