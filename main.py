@@ -13,7 +13,7 @@ QUERIES=[
     ("qa","junior QA tester"),
     ("qa","manual QA junior"),
 ]
-EXCLUDE=("стажер","стажировка","internship","trainee","full stack","fullstack","middle","senior","lead","head of","manager","director")
+EXCLUDE=("стажер","стажировка","internship","trainee","full stack","fullstack","full-stack","vue","angular","react native","react-native","flutter","middle","senior","lead","head of","manager","director")
 UA={"User-Agent":"JobFreelanceHunter/1.1"}
 
 
@@ -47,7 +47,9 @@ def ok(v):
     text=((v.get("name") or "")+" "+" ".join(str(x or "") for x in (v.get("snippet") or {}).values())).lower()
     if any(x in text for x in EXCLUDE): return False
     if not salary_ok(v): return False
-    return (v.get("schedule") or {}).get("id")=="remote" or "удален" in text or "remote" in text
+    # The candidate also accepts hybrid and office roles; location is checked
+    # against the vacancy before a human approves any draft.
+    return True
 
 
 def hh_search(tag,q):
@@ -62,7 +64,7 @@ def hh_search(tag,q):
         items.extend(payload.get("items",[]))
         if page >= int(payload.get("pages",1))-1:
             break
-    return [{"source":"hh","category":tag,"title":v["name"],"company":(v.get("employer") or {}).get("name"),"url":v.get("alternate_url"),"published":v.get("published_at"),"salary":v.get("salary")} for v in items if ok(v)]
+    return [{"source":"hh","category":tag,"title":v["name"],"company":(v.get("employer") or {}).get("name"),"url":v.get("alternate_url"),"published":v.get("published_at"),"salary":v.get("salary"),"description":" ".join(str(x or "") for x in (v.get("snippet") or {}).values()),"experience":(v.get("experience") or {}).get("name"),"location":(v.get("area") or {}).get("name")} for v in items if ok(v)]
 
 
 def remoteok():
