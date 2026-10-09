@@ -88,5 +88,11 @@ def inspect_response_form():
 
 if __name__ == "__main__":
     result = diagnose()
-    result["response_form"] = inspect_response_form()
+    if result["session"] == "authenticated":
+        try:
+            result["response_form"] = inspect_response_form()
+        except Exception as exc:
+            result["response_form"] = {"status": type(exc).__name__}
+    else:
+        result["response_form"] = {"status": "not_checked_without_login"}
     print(json.dumps(result, ensure_ascii=False))
