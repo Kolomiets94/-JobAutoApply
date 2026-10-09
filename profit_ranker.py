@@ -38,6 +38,10 @@ FREELANCE_TITLE_EXCLUDE = (
     "angular", "mean stack", "mongodb", "wordpress", "woocommerce",
     "arcgis", "jquery", "drupal", "shopify", "webflow",
     "vue", "nuxt", "svelte", "php", "laravel", "django",
+    "magento", "prestashop", "java engineer", "java developer",
+    "c# developer", "c# engineer", "blazor", "asp.net",
+    "mobile platform", "mobile app", "android", "ios app",
+    "full-time", "full time", "webshop", "e-commerce platform",
 )
 
 FREELANCE_TOO_COMPLEX = (
