@@ -143,10 +143,12 @@ def prioritize_actionable_leads(ranked):
         role = _role_category(lead)
         title = str(lead.get("title") or "").lower()
         react_first = 0 if role == "frontend" and "react" in title else 1
+        channel = _application_priority(lead)
         return (
+            1 if is_freelance(lead) and channel != 0 else 0,
             ROLE_PRIORITY.get(role, 99),
             react_first,
-            _application_priority(lead),
+            channel,
             -lead.get("profit_score", 0),
         )
 
