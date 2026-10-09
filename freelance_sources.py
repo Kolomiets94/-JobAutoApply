@@ -76,15 +76,18 @@ def _parse_prolinker_markdown(md):
     seen=set()
     # Firecrawl markdown preserves project anchors as [title](absolute-url).
     pattern=r'\[([^\]]+)\]\((https://prolinker\.com/projects/(?!s/)[^)]+)\)'
-    for label,href in re.findall(pattern,md,re.I):
+    matches = list(re.finditer(pattern, md, re.I))
+    for index, match in enumerate(matches):
+        label, href = match.groups()
         title=_clean(label)
         href=html.unescape(href.strip())
         if not title or href in seen:
             continue
         seen.add(href)
         # Keep nearby listing text so the ranker can see budget/location/technology hints.
-        pos=md.find(f"]({href})")
-        context=_clean(md[pos:pos+700]) if pos >= 0 else title
+        # Never borrow skills from the next listing on a search-results page.
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(md)
+        context = _clean(md[match.end():min(end, match.end() + 700)])
         out.append({
             "source":"prolinker_firecrawl",
             "category":"freelance",

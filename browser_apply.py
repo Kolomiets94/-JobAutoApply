@@ -378,6 +378,39 @@ def apply_hh(lead: Dict, proposal: str, storage_state=None) -> Dict[str, str]:
 
 
 
+
+def _remote_job_challenge_pending(page):
+    token = page.locator('input[name="add_response[captcha_response]"]')
+    return bool(token.count() and not token.first.input_value().strip())
+
+
+def _remote_job_validation_errors(page):
+    # Scope errors to the response form and exclude informational alerts.
+    errors = page.locator(
+        'form[name="add_response"] .alert-danger, '
+        'form[name="add_response"] .invalid-feedback, '
+        'form[name="add_response"] .field-error, '
+        'form[name="add_response"] .form-error, '
+        'form[name="add_response"] .error-message, '
+        'form[name="add_response"] input:invalid, '
+        'form[name="add_response"] textarea:invalid'
+    )
+    messages = []
+    for i in range(min(errors.count(), 8)):
+        node = errors.nth(i)
+        if not _visible(node):
+            continue
+        # validationMessage is a DOM property, not an HTML attribute.
+        message = node.evaluate("el => el.validationMessage || el.innerText || ''")
+        message = _norm(message)
+        # Report field names, never echoed identity values or token contents.
+        message = re.sub(r"[^\s@]+@[^\s@]+", "[email]", message)
+        message = re.sub(r"\+?\d[\d ()-]{7,}\d", "[phone]", message)
+        if message:
+            messages.append(message[:180])
+    return messages
+
+
 def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
     """Submit Remote-job.ru's public response form, failing closed on missing identity or confirmation."""
     raw_url = str(lead.get("url") or "")
@@ -440,6 +473,10 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
             fields["phone"].fill(phone)
             fields["answer"].fill(proposal)
 
+            # An empty Turnstile response must never be submitted or bypassed.
+            if _remote_job_challenge_pending(page):
+                return {"status": "NEEDS_HUMAN", "reason": "remote_job_turnstile_required"}
+
             # Newsletter consent is optional and deliberately left unchecked.
             submit = page.get_by_role("button", name="Отправить отклик", exact=True).first
             if not _visible(submit):
@@ -484,22 +521,7 @@ def apply_remote_job(lead: Dict, proposal: str) -> Dict[str, str]:
                     "reason": "remote_job_form_validation_error",
                     "detail": "; ".join(field_issues)[:350],
                 }
-            errors = page.locator(
-                '.invalid-feedback, .field-error, .form-error, '
-                '.error-message, [aria-invalid="true"]'
-            )
-            validation_errors = []
-            for i in range(min(errors.count(), 8)):
-                node = errors.nth(i)
-                if _visible(node):
-                    try:
-                        message = _norm(node.inner_text(timeout=1000))
-                        if not message:
-                            message = _norm(node.get_attribute("validationMessage") or "")
-                        if message:
-                            validation_errors.append(message[:180])
-                    except Exception:
-                        pass
+            validation_errors = _remote_job_validation_errors(page)
             if validation_errors:
                 return {
                     "status": "NEEDS_CONFIRMATION",
