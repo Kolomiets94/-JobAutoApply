@@ -319,7 +319,18 @@ def run():
             })
 
     # Report promising freelance projects even when bidding is not supported.
-    freelance_review = [lead for lead in ranked if is_freelance(lead) and lead.get("url")][:5]
+    # Prefer marketplaces where a direct application path may exist, rather
+    # than filling the whole shortlist with ProLinker discovery-only cards.
+    freelance_review = sorted(
+        (lead for lead in ranked if is_freelance(lead) and lead.get("url")),
+        key=lambda lead: (
+            0 if lead.get("apply_email") else
+            1 if lead.get("source") == "freelancehunt" and lead.get("can_api_bid") else
+            2 if lead.get("source") in ("fl_ru", "habr_freelance") else
+            3 if lead.get("source") == "peopleperhour" else 4,
+            -lead.get("profit_score", 0),
+        ),
+    )[:5]
     freelance_review_delivery = None
     if freelance_review:
         lines = ["Фриланс: подходящие заказы (ссылки; отклики НЕ отправлены):"]
@@ -345,7 +356,15 @@ def run():
     stats["daily_freelance_limit"] = daily_limits["freelance_submitted"]
 
     detail_lines = []
-    for item in results[:8]:
+    # Lead with Frontend/layout and freelance blockers, not disabled QA.
+    display_results = sorted(
+        results,
+        key=lambda item: (
+            1 if item.get("reason") == "qa_auto_apply_disabled" else 0,
+            0 if item.get("status") in ("SUBMITTED", "NEEDS_HUMAN", "NEEDS_CONFIRMATION") else 1,
+        ),
+    )
+    for item in display_results[:8]:
         title = str(item.get("title") or "Untitled")[:80]
         source = str(item.get("source") or "?")
         status = str(item.get("status") or "?")
@@ -363,6 +382,8 @@ def run():
         f"QA found: {stats['qa_found']}\n"
         f"Freelance found: {stats['freelance_found']}\n"
         f"Freelance ranked: {stats['freelance_ranked']}\n"
+        f"Freelance configured limit: {freelance_limit} (HOURLY_FREELANCE_LIMIT)\n"
+        f"QA auto-apply: {os.getenv('AUTO_APPLY_QA', '0')}\n"
         f"Ranked: {stats['ranked']}\n"
         f"Jobs submitted this run: {stats['jobs_submitted']}/{stats['hourly_job_limit']}\n"
         f"Freelance submitted this run: {stats['freelance_submitted']}/{stats['hourly_freelance_limit']}\n"
