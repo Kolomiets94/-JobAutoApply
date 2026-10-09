@@ -393,6 +393,10 @@ def run():
         reason = str(item.get("reason") or "")
         url = str(item.get("url") or "")
         detail_lines.append(f"- {title} [{source}] — {status}" + (f" ({reason})" if reason else ""))
+        # Include sanitized form errors; never expose candidate identity or credentials.
+        detail = str(item.get("detail") or "")
+        if detail and reason == "remote_job_form_validation_error":
+            detail_lines.append("  Form error: " + detail[:240])
         if url:
             detail_lines.append(url)
 
