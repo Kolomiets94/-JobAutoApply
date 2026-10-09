@@ -55,7 +55,7 @@ def test_run_keeps_no_email_lead_for_confirmation():
         result = worker.run()
 
     assert result["results"][0]["status"] == "NEEDS_CONFIRMATION"
-    assert result["results"][0]["reason"] == "no_free_direct_channel"
+    assert result["results"][0]["reason"] == "telegram_draft_not_approved"
     set_state.assert_any_call("lead-1", "SHORTLISTED")
     set_state.assert_any_call("lead-1", "NEEDS_CONFIRMATION")
 
