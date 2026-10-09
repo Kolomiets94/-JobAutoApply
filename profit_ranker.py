@@ -114,13 +114,14 @@ def _location_rejected(lead: Dict[str, Any], text: str) -> bool:
 def _role_category(lead: Dict[str, Any]) -> str:
     """Route jobs to the user's preferred role/resume order."""
     title = str(lead.get("title") or "").lower()
-    # Frontend wins even when HTML/CSS also appears in the title.
+    # QA automation titles may mention JavaScript/TypeScript or React.
+    if re.search(r"\bqa\b|tester|тестировщик|тестирование|quality assurance|manual test|автотест", title):
+        return "qa"
+    # Frontend wins when HTML/CSS also appears in the title.
     if any(x in title for x in ("frontend", "front-end", "front end", "фронтенд", "фронтэнд", "фронт-енд", "react", "typescript", "javascript")):
         return "frontend"
     if any(x in title for x in ("верстальщик", "верстка", "вёрстка", "html", "css")):
         return "layout"
-    if any(x in title for x in ("qa", "tester", "тестировщик", "quality assurance", "manual test")):
-        return "qa"
     return str(lead.get("category") or "other").lower()
 
 
