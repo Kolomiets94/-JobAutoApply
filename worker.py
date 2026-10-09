@@ -221,6 +221,19 @@ def run():
 
     for lead in ranked:
         freelance = is_freelance(lead)
+        # QA applications are opt-in: prioritize the candidate's primary
+        # Frontend / HTML-CSS roles instead of silently submitting QA.
+        # QA vacancies remain visible in reports for later review.
+        if not freelance and _role_category(lead) == "qa" and os.getenv("AUTO_APPLY_QA", "0") != "1":
+            results.append({
+                "title": lead.get("title"),
+                "source": lead.get("source"),
+                "url": lead.get("url"),
+                "status": "SKIPPED",
+                "reason": "qa_auto_apply_disabled",
+            })
+            stats["skipped"] += 1
+            continue
         bucket = "freelance_submitted" if freelance else "jobs_submitted"
         bucket_limit = freelance_limit if freelance else job_limit
 
