@@ -25,7 +25,7 @@ def search_hh_web(category, query):
         raise RuntimeError("HH browser search needs a saved session")
     url = "https://hh.ru/search/vacancy?" + urlencode({
         "text": query, "schedule": "remote", "order_by": "publication_time",
-        "items_on_page": "50", "salary": "60000", "currency_code": "RUR",
+        "items_on_page": "50",
     })
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
