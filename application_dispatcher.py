@@ -13,6 +13,7 @@ from email.message import EmailMessage
 from application_schedule import application_time_allowed
 from browser_apply import dispatch_browser
 from freelancehunt_adapter import add_bid
+from telegram_approval import approve
 
 
 def _send_email(lead, proposal):
@@ -64,6 +65,11 @@ def dispatch(lead, proposal):
 
     if lead.get("paid_bid") is True:
         return {"status": "SKIPPED", "reason": "paid_bid"}
+
+    # Fail closed: no email, browser submission or API bid without an explicit
+    # approval for this exact vacancy and draft in the configured Telegram chat.
+    if not approve(lead, proposal):
+        return {"status": "NEEDS_CONFIRMATION", "reason": "telegram_draft_not_approved"}
 
     if lead.get("source") == "freelancehunt" and lead.get("can_api_bid"):
         return add_bid(lead, proposal)
