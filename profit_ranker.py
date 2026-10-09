@@ -12,7 +12,8 @@ SKILLS = {
     "qa": .55, "tester": .55, "тестировщик": .55, "manual qa": .65,
 }
 BLOCK = (
-    "middle", "mid-level", "mid level", "senior", "lead ", "team lead", "tech lead", "head of", "manager", "director", "fullstack", "full stack",
+    "middle", "mid-level", "mid level", "senior", "lead ", "team lead", "tech lead", "head of", "manager", "director", "fullstack", "full stack", "full-stack",
+    "react native", "flutter", "angular", "vue.js", "vuejs", "vue 3", "vue 2", "nuxt",
     "node.js required", "internship", "trainee", "стажировка", "стажер", "стажёр",
     "ai engineer", "ai agent engineer", "machine learning engineer", "ml engineer", "security engineer", "security analyst", "cybersecurity",
     "coreldraw", "полиграф", "типограф", "для печати", "визитк",
@@ -130,7 +131,7 @@ ROLE_PRIORITY = {"frontend": 0, "layout": 1, "qa": 2}
 
 def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
     text = _text(lead)
-    if any(x in text for x in BLOCK):
+    if any(x in text for x in BLOCK) or re.search(r"(?<![a-z])vue(?![a-z])", text):
         return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "excluded requirement"}
     if _explicit_salary_rejected(lead):
         return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "salary below configured floor"}
@@ -145,8 +146,12 @@ def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
         if not any(x in title for x in TARGET_TITLE_TERMS):
             return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "job title outside target roles"}
         junior_markers = ("junior", "jr.", "jr ", "джуниор", "джун")
-        if not any(x in title for x in junior_markers):
-            return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "not explicitly Junior"}
+        experience = str(lead.get("experience") or "").lower()
+        one_year = bool(re.search(r"(?:от|from|at least)\s*1\s*(?:год|года|year)|\b1\s*\+?\s*(?:год|года|year)", experience))
+        if not any(x in title for x in junior_markers) and not one_year:
+            return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "not Junior or explicitly from one year"}
+        if re.search(r"(?:от|from|at least)\s*[2-9]\s*(?:год|года|лет|year)", experience):
+            return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "experience above one year"}
         if re.search(r"junior\s*\+|junior\s+plus|джун(?:иор)?\s*\+", title):
             return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "Junior+ excluded"}
 
