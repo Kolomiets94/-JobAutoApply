@@ -10,7 +10,6 @@ from freelancehunt_adapter import collect_freelancehunt
 from job_matcher import JobMatcher
 from profit_ranker import rank_leads, FREELANCE_SOURCES, ROLE_PRIORITY, _role_category
 from proposal_writer import make_proposal
-from application_schedule import application_time_allowed
 from application_dispatcher import dispatch
 from queue_store import enqueue, set_state, submitted_today, was_submitted
 from notification_rules import format_notification, should_notify
@@ -183,19 +182,6 @@ def _limit_label(value):
 
 
 def run():
-    if not application_time_allowed():
-        message = ("Job Auto Apply: запуск вне окна откликов. "
-                   "Поиск и отправка откликов выполняются в 06:00, 08:00, "
-                   "10:00, 12:00, 14:00 и 16:00 по Екатеринбургу.")
-        try:
-            delivery = send_message(message)
-        except Exception as exc:
-            delivery = {"status": "FAILED", "reason": type(exc).__name__}
-        print(f"[telegram] off-hours report: {delivery}", flush=True)
-        return {"stats": {"submitted": 0}, "results": [],
-                "summary_delivery": delivery,
-                "reason": "outside_application_hours",
-                "application_window": "Daily batches 06:00,08:00,10:00,12:00,14:00,16:00 Asia/Yekaterinburg"}
     try:
         started = send_message("Job Auto Apply: поиск вакансий и заказов запущен.")
     except Exception as exc:
