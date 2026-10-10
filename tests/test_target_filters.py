@@ -35,3 +35,13 @@ def test_russia_and_worldwide_jobs_are_eligible_but_restricted_jobs_are_not():
     assert not rank_lead({**base, "source": "remotive", "location": "US only"})["eligible"]
     assert not rank_lead({**base, "source": "remotive", "location": "Worldwide",
                           "description": "React TypeScript. Must reside in the US"})["eligible"]
+
+
+def test_junior_web_developer_in_moscow_is_frontend():
+    from hh_web_search import title_matches_category
+    title = "Младший веб-разработчик — VEDAR"
+    assert title_matches_category(title, "frontend")
+    lead = {"source": "hh", "title": title, "description": "Москва. HTML CSS React TypeScript", "location": "Москва"}
+    result = rank_lead(lead)
+    assert result["eligible"]
+    assert result["category"] == "frontend"
