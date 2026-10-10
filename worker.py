@@ -172,6 +172,16 @@ def deliver_notifications(notifications):
     return deliveries
 
 
+def _application_limit(name):
+    """Zero or an unset limit means no application-count cap."""
+    value = int(os.getenv(name, "0"))
+    return value if value > 0 else None
+
+
+def _limit_label(value):
+    return str(value) if value is not None else "без лимита"
+
+
 def run():
     if not application_time_allowed():
         message = ("Job Auto Apply: запуск вне окна откликов. "
@@ -195,15 +205,16 @@ def run():
     ranked = prioritize_actionable_leads(rank_leads(leads))
 
     daily_limits = {
-        "jobs_submitted": int(os.getenv("DAILY_JOB_LIMIT", "10")),
-        "freelance_submitted": int(os.getenv("DAILY_FREELANCE_LIMIT", "10")),
+        "jobs_submitted": _application_limit("DAILY_JOB_LIMIT"),
+        "freelance_submitted": _application_limit("DAILY_FREELANCE_LIMIT"),
     }
     daily_counts = {"jobs_submitted": submitted_today("jobs"),
                     "freelance_submitted": submitted_today("freelance")}
-    daily_limit = sum(daily_limits.values())
+    daily_limit = (sum(daily_limits.values())
+                   if all(v is not None for v in daily_limits.values()) else None)
     submitted_count = sum(daily_counts.values())
-    job_limit = int(os.getenv("HOURLY_JOB_LIMIT", "2"))
-    freelance_limit = int(os.getenv("HOURLY_FREELANCE_LIMIT", "2"))
+    job_limit = _application_limit("HOURLY_JOB_LIMIT")
+    freelance_limit = _application_limit("HOURLY_FREELANCE_LIMIT")
 
     source_counts = {name: 0 for name, _ in JOB_COLLECTORS}
     for lead in leads:
@@ -267,7 +278,7 @@ def run():
 
         # Do not stop the whole run when one category is full:
         # jobs and freelance have independent hourly limits.
-        if stats[bucket] >= bucket_limit:
+        if bucket_limit is not None and stats[bucket] >= bucket_limit:
             stats["hourly_limit_skipped"] += 1
             continue
 
@@ -283,7 +294,7 @@ def run():
             })
             continue
 
-        if daily_counts[bucket] >= daily_limits[bucket]:
+        if daily_limits[bucket] is not None and daily_counts[bucket] >= daily_limits[bucket]:
             stats["daily_limit_skipped"] += 1
             results.append({
                 "id": lid,
@@ -421,9 +432,9 @@ def run():
 
     summary_message = (
         "Job Auto Apply — all sources report\n" +
-        f"Run: {os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/{os.getenv('GITHUB_REPOSITORY', 'unknown')}/actions/runs/{os.getenv('GITHUB_RUN_ID', 'unknown')}\\n"
-        f"Workflow: {os.getenv('GITHUB_WORKFLOW', 'unknown')} | Ref: {os.getenv('GITHUB_REF_NAME', 'unknown')} | SHA: {os.getenv('GITHUB_SHA', 'unknown')[:12]}\\n"
-        f"Found: {stats['found']}\\n"
+        f"Run: {os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/{os.getenv('GITHUB_REPOSITORY', 'unknown')}/actions/runs/{os.getenv('GITHUB_RUN_ID', 'unknown')}\n"
+        f"Workflow: {os.getenv('GITHUB_WORKFLOW', 'unknown')} | Ref: {os.getenv('GITHUB_REF_NAME', 'unknown')} | SHA: {os.getenv('GITHUB_SHA', 'unknown')[:12]}\n"
+        f"Found: {stats['found']}\n"
         f"Frontend found: {stats['frontend_found']}\n"
         f"Layout found: {stats['layout_found']}\n"
         f"QA found: {stats['qa_found']}\n"
@@ -434,11 +445,11 @@ def run():
         f"Freelancehunt API configured: {stats['freelancehunt_token_configured']}\n"
         f"SMTP configured: {stats['smtp_configured']}\n"
         f"Remote-job identity configured: {stats['remote_job_identity_configured']}\n"
-        f"Freelance configured limit: {freelance_limit} (HOURLY_FREELANCE_LIMIT)\n"
+        f"Freelance configured limit: {_limit_label(freelance_limit)} (HOURLY_FREELANCE_LIMIT)\n"
         f"QA auto-apply: {os.getenv('AUTO_APPLY_QA', '0')}\n"
         f"Ranked: {stats['ranked']}\n"
-        f"Jobs submitted this run: {stats['jobs_submitted']}/{stats['hourly_job_limit']}\n"
-        f"Freelance submitted this run: {stats['freelance_submitted']}/{stats['hourly_freelance_limit']}\n"
+        f"Jobs submitted this run: {stats['jobs_submitted']}/{_limit_label(stats['hourly_job_limit'])}\n"
+        f"Freelance submitted this run: {stats['freelance_submitted']}/{_limit_label(stats['hourly_freelance_limit'])}\n"
         f"Submitted this run total: {stats['submitted']}\n"
         f"Skipped: {stats['skipped'] + stats['duplicate_skipped'] + stats['daily_limit_skipped'] + stats['hourly_limit_skipped']}\n"
         f"Failed: {stats['failed']}\n"
@@ -446,8 +457,8 @@ def run():
         f"Shortlisted (not sent): {stats['shortlisted']}\n"
         f"Needs confirmation: {stats['needs_confirmation']}\n"
         f"Telegram vacancy alerts sent: {stats['notifications_sent']}\n"
-        f"Jobs submitted today: {stats['jobs_submitted_today']}/{stats['daily_job_limit']}\n"
-        f"Freelance submitted today: {stats['freelance_submitted_today']}/{stats['daily_freelance_limit']}\n\n"
+        f"Jobs submitted today: {stats['jobs_submitted_today']}/{_limit_label(stats['daily_job_limit'])}\n"
+        f"Freelance submitted today: {stats['freelance_submitted_today']}/{_limit_label(stats['daily_freelance_limit'])}\n\n"
         "Results:\n" + ("\n".join(detail_lines) if detail_lines else "No ranked results")
     )
     summary_message += "\n\nSources: " + ", ".join(f"{name}: {count}" for name, count in source_counts.items())
