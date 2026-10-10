@@ -5,11 +5,6 @@ import application_dispatcher as dispatcher
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def approved(monkeypatch):
-    monkeypatch.setattr(dispatcher, 'approve', lambda lead, proposal: True)
-
-
 def lead():
     return {'source':'freelancehunt','can_api_bid':True,'external_id':'123','title':'Вёрстка лендинга',
             'budget':{'amount':3000,'currency':'RUB'}}
@@ -57,7 +52,12 @@ def test_fl_ru_unknown_bid_access_is_not_misreported_as_paid(monkeypatch):
     assert result["reason"] == "no_free_direct_channel"
 
 
-def test_no_submission_without_telegram_approval(monkeypatch):
-    monkeypatch.setattr(dispatcher, 'approve', lambda lead, proposal: False)
-    result = dispatch(lead(), 'Draft')
-    assert result == {'status': 'NEEDS_CONFIRMATION', 'reason': 'telegram_draft_not_approved'}
+def test_dispatch_submits_without_telegram_interaction(monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+    with patch.object(dispatcher, "_send_email", return_value=None), \
+         patch.object(dispatcher, "dispatch_browser",
+                      return_value={"status": "SUBMITTED", "reason": "browser_hh_sent"}) as send:
+        result = dispatch({"source": "hh", "title": "Junior React"}, "Draft")
+    assert result["status"] == "SUBMITTED"
+    send.assert_called_once()
