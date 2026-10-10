@@ -32,10 +32,10 @@ jobs:
       REMOTE_JOB_EMAIL: ${{ secrets.REMOTE_JOB_EMAIL || secrets.SMTP_USER }}
       REMOTE_JOB_PHONE: ${{ secrets.REMOTE_JOB_PHONE }}
       HH_STORAGE_STATE_JSON: ${{ secrets.HH_STORAGE_STATE_JSON }}
-      DAILY_JOB_LIMIT: "10"
-      DAILY_FREELANCE_LIMIT: "10"
-      HOURLY_JOB_LIMIT: "2"
-      HOURLY_FREELANCE_LIMIT: "2"
+      DAILY_JOB_LIMIT: "0"
+      DAILY_FREELANCE_LIMIT: "0"
+      HOURLY_JOB_LIMIT: "0"
+      HOURLY_FREELANCE_LIMIT: "0"
       HUNTER_DB: hunter.db
       PYTHONPATH: .
     steps:
