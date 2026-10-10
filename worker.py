@@ -174,7 +174,7 @@ def deliver_notifications(notifications):
 
 def _application_limit(name):
     """Zero or an unset limit means no application-count cap."""
-    value = int(os.getenv(name, "0"))
+    value = int(os.getenv(name, "0") or "0")
     return value if value > 0 else None
 
 
@@ -261,11 +261,6 @@ def run():
                 "reason": "qa_auto_apply_disabled",
             })
             stats["skipped"] += 1
-            continue
-        # Limit live approval prompts so a scheduled run can finish even if
-        # nobody is available to review them (two times five minutes).
-        if stats["needs_confirmation"] >= 2:
-            stats["shortlisted"] += 1
             continue
         # Discovery-only freelance boards have no supported direct submission.
         # Keep them in the separate Telegram shortlist, not in application
