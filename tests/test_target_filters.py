@@ -18,3 +18,20 @@ def test_accepts_explicit_one_year_frontend_and_rejects_higher_experience():
 def test_excludes_internship_even_when_title_says_junior():
     lead = rank_lead({"source": "hh", "title": "Junior React internship", "description": "React"})
     assert not lead["eligible"]
+
+
+def test_required_sql_rejected_and_explicit_optional_sql_allowed():
+    base = {"source": "hh", "title": "Junior React Developer", "description": "React TypeScript"}
+    assert not rank_lead({**base, "requirements": "SQL required"})["eligible"]
+    assert not rank_lead({**base, "requirements": "Знание SQL"})["eligible"]
+    assert rank_lead({**base, "requirements": "SQL будет плюсом"})["eligible"]
+
+
+def test_russia_and_worldwide_jobs_are_eligible_but_restricted_jobs_are_not():
+    base = {"title": "Junior React Developer", "description": "React TypeScript"}
+    assert rank_lead({**base, "source": "hh", "location": "Россия"})["eligible"]
+    for location in ("Worldwide", "Anywhere", "Global", "Russia"):
+        assert rank_lead({**base, "source": "remotive", "location": location})["eligible"]
+    assert not rank_lead({**base, "source": "remotive", "location": "US only"})["eligible"]
+    assert not rank_lead({**base, "source": "remotive", "location": "Worldwide",
+                          "description": "React TypeScript. Must reside in the US"})["eligible"]
