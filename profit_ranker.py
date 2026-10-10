@@ -24,7 +24,7 @@ INTERNATIONAL_SOURCES = {"remoteok", "jobicy", "remotive", "weworkremotely", "ar
 FREELANCE_SOURCES = {"fl_ru", "habr_freelance", "freelancehunt", "peopleperhour", "prolinker", "prolinker_firecrawl", "upwork_frontend"}
 TARGET_TITLE_TERMS = (
     "frontend", "front-end", "front end", "фронтенд", "фронтэнд", "фронт-енд", "react", "typescript", "javascript",
-    "верстальщик", "верстка", "вёрстка", "html", "css",
+    "верстальщик", "верстка", "вёрстка", "html", "css", "веб-разработчик",
     "qa tester", "qa engineer", "manual qa", "manual tester",
     "тестировщик", "quality assurance",
 )
