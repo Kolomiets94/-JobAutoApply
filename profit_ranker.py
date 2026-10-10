@@ -133,6 +133,13 @@ def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
     text = _text(lead)
     if any(x in text for x in BLOCK) or re.search(r"(?<![a-z])vue(?![a-z])", text):
         return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "excluded requirement"}
+    # SQL is outside the confirmed stack. Clearly optional mentions are allowed.
+    sql_parts = re.split(r"[\\n.!?;]", text)
+    optional_sql = ("optional", "nice to have", "nice-to-have", "not required",
+                    "не требуется", "необязател", "будет плюсом", "как плюс")
+    if any(re.search(r"\\b(?:sql|mysql|postgresql)\\b", part) and
+           not any(marker in part for marker in optional_sql) for part in sql_parts):
+        return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "SQL outside confirmed stack"}
     if _explicit_salary_rejected(lead):
         return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "salary below configured floor"}
     if _location_rejected(lead, text):
