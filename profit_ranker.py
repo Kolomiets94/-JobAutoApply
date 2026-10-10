@@ -119,7 +119,7 @@ def _role_category(lead: Dict[str, Any]) -> str:
     if re.search(r"\bqa\b|tester|тестировщик|тестирование|quality assurance|manual test|автотест", title):
         return "qa"
     # Frontend wins when HTML/CSS also appears in the title.
-    if any(x in title for x in ("frontend", "front-end", "front end", "фронтенд", "фронтэнд", "фронт-енд", "react", "typescript", "javascript")):
+    if any(x in title for x in ("frontend", "front-end", "front end", "фронтенд", "фронтэнд", "фронт-енд", "react", "typescript", "javascript", "веб-разработчик")):
         return "frontend"
     if any(x in title for x in ("верстальщик", "верстка", "вёрстка", "html", "css")):
         return "layout"
@@ -152,7 +152,7 @@ def rank_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
             return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "non-target job title"}
         if not any(x in title for x in TARGET_TITLE_TERMS):
             return {**lead, "profit_score": 0, "eligible": False, "rank_reason": "job title outside target roles"}
-        junior_markers = ("junior", "jr.", "jr ", "джуниор", "джун")
+        junior_markers = ("junior", "jr.", "jr ", "джуниор", "джун", "младший", "младшая")
         experience = str(lead.get("experience") or "").lower()
         one_year = bool(re.search(r"(?:от|from|at least)\s*1\s*(?:год|года|year)|\b1\s*\+?\s*(?:год|года|year)", experience))
         if not any(x in title for x in junior_markers) and not one_year:
