@@ -26,6 +26,7 @@ def approve(lead, proposal):
         }, timeout=15)
         sent.raise_for_status()
         message_id = sent.json()["result"]["message_id"]
+        print("[telegram-approval] draft delivered", flush=True)
         offset = None
         deadline = time.monotonic() + 300
         while time.monotonic() < deadline:
@@ -44,7 +45,11 @@ def approve(lead, proposal):
                         and data in ("approve:" + nonce, "reject:" + nonce)):
                     requests.post(url + "answerCallbackQuery", json={
                         "callback_query_id": callback["id"]}, timeout=10).raise_for_status()
+                    print("[telegram-approval] decision received: " +
+                          ("approved" if data.startswith("approve:") else "rejected"), flush=True)
                     return data.startswith("approve:")
-    except (requests.RequestException, KeyError, ValueError):
+    except (requests.RequestException, KeyError, ValueError) as exc:
+        print("[telegram-approval] failure: " + type(exc).__name__, flush=True)
         return False
+    print("[telegram-approval] decision timed out; nothing approved", flush=True)
     return False
