@@ -6,6 +6,25 @@ import time
 import requests
 
 
+def _finish_review(url, chat_id, message_id, text, callback_id=None):
+    """Show the decision and remove expired buttons without logging draft text."""
+    if callback_id:
+        try:
+            requests.post(url + "answerCallbackQuery", json={
+                "callback_query_id": callback_id, "text": text,
+                "show_alert": True,
+            }, timeout=10).raise_for_status()
+        except requests.RequestException as exc:
+            print("[telegram-approval] feedback failure: " + type(exc).__name__, flush=True)
+    try:
+        requests.post(url + "editMessageReplyMarkup", json={
+            "chat_id": chat_id, "message_id": message_id,
+            "reply_markup": {"inline_keyboard": []},
+        }, timeout=10).raise_for_status()
+    except requests.RequestException as exc:
+        print("[telegram-approval] button cleanup failure: " + type(exc).__name__, flush=True)
+
+
 def approve(lead, proposal):
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
@@ -16,6 +35,7 @@ def approve(lead, proposal):
     text = ("Черновик отклика. Проверьте вакансию, требования и письмо перед отправкой.\n"
             + str(lead.get("title") or "") + "\n" + str(lead.get("url") or "")
             + "\n\n" + proposal)
+    message_id = None
     try:
         sent = requests.post(url + "sendMessage", json={
             "chat_id": chat_id, "text": text[:4000], "disable_web_page_preview": True,
@@ -43,13 +63,18 @@ def approve(lead, proposal):
                 if (str((message.get("chat") or {}).get("id")) == str(chat_id)
                         and message.get("message_id") == message_id
                         and data in ("approve:" + nonce, "reject:" + nonce)):
-                    requests.post(url + "answerCallbackQuery", json={
-                        "callback_query_id": callback["id"]}, timeout=10).raise_for_status()
+                    approved = data.startswith("approve:")
+                    _finish_review(url, chat_id, message_id,
+                                   "Подтверждение получено." if approved else "Черновик отклонён.",
+                                   callback["id"])
                     print("[telegram-approval] decision received: " +
                           ("approved" if data.startswith("approve:") else "rejected"), flush=True)
                     return data.startswith("approve:")
     except (requests.RequestException, KeyError, ValueError) as exc:
         print("[telegram-approval] failure: " + type(exc).__name__, flush=True)
+        if message_id is not None:
+            _finish_review(url, chat_id, message_id, "Проверка завершена без отправки.")
         return False
+    _finish_review(url, chat_id, message_id, "Время подтверждения истекло.")
     print("[telegram-approval] decision timed out; nothing approved", flush=True)
     return False
