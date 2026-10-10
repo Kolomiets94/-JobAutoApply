@@ -4,7 +4,7 @@ from urllib.parse import urlencode
 from playwright.sync_api import sync_playwright
 from browser_apply import _storage_state, _looks_like_challenge
 
-JUNIOR = re.compile(r"(?<![a-z])(?:junior|джуниор|джун)(?![a-zа-я])", re.I)
+JUNIOR = re.compile(r"(?<![a-z])(?:junior|джуниор|джун|младший|младшая)(?![a-zа-я])", re.I)
 EXCLUDED = re.compile(r"full[ -]?stack|фул[ -]?ст[еэ]к|middle|senior|lead|trainee|intern|стаж[её]р|стажиров|junior\s*\+|junior\s+plus", re.I)
 
 
@@ -14,7 +14,7 @@ def title_matches_category(title, category):
     if category != "qa" and re.search(r"\bqa\b|tester|тестиров|quality assurance|автотест", title, re.I):
         return False
     terms = {
-        "frontend": r"front[ -]?end|фронт[ -]?енд|фронт[ -]?энд|react|javascript|typescript",
+        "frontend": r"front[ -]?end|фронт[ -]?енд|фронт[ -]?энд|react|javascript|typescript|веб-разработчик",
         "layout": r"верст|вёрст|html|css",
         "qa": r"\bqa\b|tester|тестиров|quality assurance",
     }
@@ -26,7 +26,7 @@ def search_hh_web(category, query):
     if not state:
         raise RuntimeError("HH browser search needs a saved session")
     url = "https://hh.ru/search/vacancy?" + urlencode({
-        "text": query, "schedule": "remote", "order_by": "publication_time",
+        "text": query, "order_by": "publication_time",
         "items_on_page": "50",
     })
     with sync_playwright() as p:
@@ -47,17 +47,23 @@ def search_hh_web(category, query):
                     return []
                 raise RuntimeError("HH search cards not found")
             cards = page.evaluate("""() => Array.from(document.querySelectorAll('[data-qa="serp-item__title"], [data-qa="vacancy-serp__vacancy-title"]')).map(a => {
-                const card = a.closest('[data-qa="vacancy-serp__vacancy"]') || a.closest('.vacancy-serp-item');
-                return {title:a.innerText.trim(), url:a.href, description:card ? card.innerText.slice(0,4000) : a.innerText};
+                const card = a.closest('[class*="vacancy-card--"]') || a.closest('[data-qa="vacancy-serp__vacancy"]') || a.closest('.vacancy-serp-item');
+                const details = card ? card.innerText : a.innerText;
+                return {title:a.innerText.trim(), url:a.href, description:details.slice(0,4000),
+                        remote:details.includes('Можно удалённо'),
+                        location:details.includes('Москва') ? 'Москва' : details.includes('Санкт-Петербург') ? 'Санкт-Петербург' : ''};
             })""")
             results = []
             for card in cards:
                 title = card.get("title", "")
                 if not title_matches_category(title, category):
                     continue
+                # Candidate accepts on-site/hybrid work in Moscow and St Petersburg.
+                if not card.get("remote") and card.get("location") not in ("Москва", "Санкт-Петербург"):
+                    continue
                 results.append({
                     **card, "source": "hh", "category": category,
-                    "collection_method": "hh_web", "remote": True,
+                    "collection_method": "hh_web",
                 })
             return results
         finally:
