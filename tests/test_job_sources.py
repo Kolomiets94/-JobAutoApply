@@ -33,7 +33,7 @@ def test_mailto_uses_real_delivery_and_checks_rejection(monkeypatch):
     for k,v in {'AUTO_SEND_EMAIL':'1','SMTP_HOST':'smtp.example.com','SMTP_USER':'alex@example.com','SMTP_PASSWORD':'x'}.items():
         monkeypatch.setenv(k,v)
     lead = {'apply_url': 'mailto:jobs@example.com', 'title': 'Junior Frontend'}
-    with patch('application_dispatcher.approve', return_value=True), patch('application_dispatcher.smtplib.SMTP_SSL') as smtp:
+    with patch('application_dispatcher.smtplib.SMTP_SSL') as smtp:
         smtp.return_value.__enter__.return_value.send_message.return_value = {}
         assert dispatch(lead, 'Hello')['status'] == 'SUBMITTED'
         smtp.return_value.__enter__.return_value.send_message.return_value = {'jobs@example.com': (550, b'no')}
