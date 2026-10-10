@@ -251,7 +251,12 @@ def run():
             })
             stats["skipped"] += 1
             continue
-        # Limit live approval prompts so a scheduled run can finish even if\n        # nobody is available to review them (two times five minutes).\n        if stats["needs_confirmation"] >= 2:\n            stats["shortlisted"] += 1\n            continue\n        # Discovery-only freelance boards have no supported direct submission.
+        # Limit live approval prompts so a scheduled run can finish even if
+        # nobody is available to review them (two times five minutes).
+        if stats["needs_confirmation"] >= 2:
+            stats["shortlisted"] += 1
+            continue
+        # Discovery-only freelance boards have no supported direct submission.
         # Keep them in the separate Telegram shortlist, not in application
         # attempts or NEEDS_CONFIRMATION counts.
         if freelance and _application_priority(lead) != 0:
