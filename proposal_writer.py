@@ -5,7 +5,7 @@ from profit_ranker import _role_category
 PROJECTS = {
     "travel": ("TravelBlog", "https://github.com/Kolomiets94/travel-blog"),
     "movie": ("VKMarusya", "https://github.com/Kolomiets94/VKMarusya"),
-    "audio": ("Audioplayer", "https://github.com/Kolomiets94/--TypeScript-Audioplayer"),
+    "audio": ("Audioplayer", "https://github.com/Kolomiets94/audioplayer"),
 }
 
 
